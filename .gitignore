@@ -1,0 +1,12 @@
+node_modules/
+data/
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+npm-debug.log*
+*.db
+*.db-wal
+*.db-shm

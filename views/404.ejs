@@ -1,0 +1,19 @@
+<%- include('partials/cabecera') %>
+
+<section class="seccion">
+  <div class="contenedor">
+    <div class="estado-vacio tarjeta estado-vacio-grande">
+      <p class="codigo-error">404</p>
+      <h1>No encontramos esta página</h1>
+      <p>La dirección que buscas no existe o el comprobante solicitado no está disponible.</p>
+      <div class="hero-acciones centrado">
+        <a href="/" class="boton boton-primario">Ir al inicio</a>
+        <% if (estudiante) { %>
+          <a href="/panel" class="boton boton-fantasma">Mi panel</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

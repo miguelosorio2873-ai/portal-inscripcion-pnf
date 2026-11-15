@@ -1,0 +1,136 @@
+<%- include('partials/cabecera') %>
+
+<section class="hero">
+  <div class="contenedor hero-grid">
+    <div class="hero-texto">
+      <div class="hero-marca">
+        <img src="/img/logo-uptll.jpg" width="182" height="78"
+             alt="UPTLL · Universidad Politécnica Territorial de Los Llanos Juana Ramírez">
+      </div>
+      <p class="etiqueta">Programas Nacionales de Formación</p>
+      <h1>Tu inscripción universitaria, en línea y sin colas.</h1>
+      <p class="hero-bajada">
+        Regístrate, selecciona tu carrera y semestre, y obtén un comprobante de inscripción
+        listo para imprimir desde el portal o desde Control de Estudios.
+      </p>
+      <div class="hero-acciones">
+        <% if (estudiante) { %>
+          <a class="boton boton-oro boton-grande" href="/inscribir">Realizar inscripción</a>
+          <a class="boton boton-claro boton-grande" href="/panel">Ir a mi panel</a>
+        <% } else { %>
+          <a class="boton boton-oro boton-grande" href="/registro">Crear mi cuenta</a>
+          <a class="boton boton-claro boton-grande" href="/ingresar">Ya tengo cuenta</a>
+        <% } %>
+      </div>
+      <ul class="hero-datos" aria-label="Datos del proceso">
+        <li><strong><%= carreras.length %></strong><span>carreras PNF</span></li>
+        <li><strong>5</strong><span>semestres por carrera</span></li>
+        <li><strong><%= total %></strong><span>inscripciones registradas</span></li>
+      </ul>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <div class="comprobante-demo">
+        <div class="demo-encabezado">
+          <img class="demo-logo" src="/img/logo-uptll.jpg" width="88" height="38" alt="">
+          <div>
+            <strong>Comprobante de inscripción</strong>
+            <small>Control de Estudios</small>
+          </div>
+        </div>
+        <div class="demo-codigo">INS-<%= anio %>-000128</div>
+        <div class="demo-lineas">
+          <span></span><span></span><span class="corta"></span>
+        </div>
+        <div class="demo-tabla">
+          <div><span>Carrera</span><strong>PNF Informática</strong></div>
+          <div><span>Semestre</span><strong>III</strong></div>
+          <div><span>Turno</span><strong>Mañana</strong></div>
+        </div>
+        <div class="demo-pie">
+          <span class="sello">REGISTRADA</span>
+          <span class="demo-firma"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="seccion" id="carreras">
+  <div class="contenedor">
+    <div class="titulo-seccion">
+      <div>
+        <p class="etiqueta etiqueta-oscura">Oferta académica</p>
+        <h2>Carreras disponibles</h2>
+      </div>
+      <p class="titulo-nota">Cuatro Programas Nacionales de Formación con cinco semestres cada uno.</p>
+    </div>
+
+    <div class="rejilla-carreras">
+      <% const conteo = Object.fromEntries(porCarrera.map((c) => [c.id, c.total])); %>
+      <% carreras.forEach((carrera, indice) => { %>
+        <article class="tarjeta-carrera">
+          <div class="carrera-cabecera">
+            <span class="carrera-insignia insignia-<%= indice + 1 %>"><%= carrera.codigo %></span>
+            <span class="carrera-meta"><%= carrera.duracion %></span>
+          </div>
+          <h3><%= carrera.nombre %></h3>
+          <p><%= carrera.descripcion %></p>
+          <div class="carrera-pie">
+            <span class="carrera-conteo"><%= conteo[carrera.id] || 0 %> inscritos</span>
+            <a href="<%= estudiante ? `/inscribir?carrera=${carrera.id}` : '/registro' %>" class="enlace-flecha">
+              Inscribirme <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section class="seccion seccion-alterna">
+  <div class="contenedor">
+    <div class="titulo-seccion centrado">
+      <div>
+        <p class="etiqueta etiqueta-oscura">Paso a paso</p>
+        <h2>Inscribirte toma menos de cinco minutos</h2>
+      </div>
+    </div>
+
+    <ol class="pasos">
+      <li>
+        <span class="paso-numero">1</span>
+        <h3>Registra tu cuenta</h3>
+        <p>Crea tu usuario con cédula, datos personales y una contraseña segura.</p>
+      </li>
+      <li>
+        <span class="paso-numero">2</span>
+        <h3>Completa la inscripción</h3>
+        <p>Elige carrera, semestre, turno y las asignaturas que cursarás.</p>
+      </li>
+      <li>
+        <span class="paso-numero">3</span>
+        <h3>Imprime tu comprobante</h3>
+        <p>
+          Usa «Imprimir con Visual Basic» para imprimir directamente desde la base de datos,
+          o «Imprimir en el navegador» si la aplicación no está instalada en el equipo.
+        </p>
+      </li>
+    </ol>
+
+    <div class="panel-destacado">
+      <div>
+        <h3>Comprobantes también desde Visual Basic</h3>
+        <p>
+          La aplicación de escritorio en Visual Basic (.NET) se conecta a la misma base de datos.
+          Desde el comprobante web, «Imprimir con Visual Basic» envía solo el código: la app
+          consulta los datos, imprime en la impresora predeterminada y registra la impresión.
+          También permite buscar por cédula o código y previsualizar el comprobante.
+        </p>
+      </div>
+      <span class="etiqueta-tecnica">MySQL · VB.NET · Windows Forms</span>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

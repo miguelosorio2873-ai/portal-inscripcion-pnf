@@ -1,0 +1,56 @@
+<%- include('partials/cabecera') %>
+
+<section class="seccion seccion-angosta">
+  <div class="contenedor">
+    <div class="acceso">
+      <div class="tarjeta formulario-tarjeta">
+        <header class="formulario-cabecera">
+          <p class="etiqueta etiqueta-oscura">Acceso al portal</p>
+          <h1>Inicia sesión</h1>
+          <p>Ingresa con tu cédula o correo electrónico para gestionar tu inscripción.</p>
+        </header>
+
+        <% if (error) { %>
+          <div class="aviso aviso-error" role="alert"><span><%= error %></span></div>
+        <% } %>
+
+        <form method="post" action="/ingresar" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="destino" value="<%= destino %>">
+
+          <div class="campo">
+            <label for="identificador">Cédula o correo electrónico</label>
+            <input id="identificador" name="identificador" type="text" autocomplete="username"
+                   placeholder="V-12345678 o nombre@correo.com" value="<%= valores.identificador || '' %>"
+                   required autofocus>
+          </div>
+
+          <div class="campo">
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </div>
+
+          <button type="submit" class="boton boton-primario boton-bloque boton-grande">Entrar</button>
+        </form>
+
+        <p class="texto-centrado texto-suave">
+          ¿No tienes cuenta? <a href="/registro">Regístrate aquí</a>
+        </p>
+      </div>
+
+      <div class="acceso-lateral">
+        <h2>¿Qué puedes hacer en el portal?</h2>
+        <ul class="lista-verificacion">
+          <li>Registrar tu inscripción a cualquiera de las cuatro carreras PNF.</li>
+          <li>Consultar el estado de tus inscripciones.</li>
+          <li>Ver e imprimir tu comprobante en formato oficial.</li>
+        </ul>
+        <p class="nota-direccion">
+          Si olvidaste tu contraseña, acude a Control de Estudios con tu cédula de identidad.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

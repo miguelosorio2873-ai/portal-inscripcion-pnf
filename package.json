@@ -1,0 +1,23 @@
+{
+  "name": "portal-inscripcion-pnf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portal web de inscripcion universitaria (PNF) con base de datos MySQL/MariaDB compartida con una aplicacion Visual Basic para imprimir comprobantes.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:reset": "node scripts/reset-db.js",
+    "db:migrar": "node scripts/migrar-sqlite-a-mysql.js",
+    "demo": "node scripts/demo.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "ejs": "^7.0.2",
+    "express": "^5.1.0",
+    "mysql2": "^3.24.6"
+  }
+}

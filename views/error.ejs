@@ -1,0 +1,19 @@
+<%- include('partials/cabecera') %>
+
+<section class="seccion">
+  <div class="contenedor">
+    <div class="estado-vacio tarjeta estado-vacio-grande">
+      <p class="codigo-error">Aviso</p>
+      <h1><%= typeof titulo !== 'undefined' ? titulo : 'Ocurrió un problema' %></h1>
+      <p><%= typeof mensaje !== 'undefined' ? mensaje : 'Intenta de nuevo en unos momentos.' %></p>
+      <div class="hero-acciones centrado">
+        <a href="/" class="boton boton-primario">Volver al inicio</a>
+        <% if (estudiante) { %>
+          <a href="/panel" class="boton boton-fantasma">Mi panel</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

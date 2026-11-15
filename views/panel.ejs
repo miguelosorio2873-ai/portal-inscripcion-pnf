@@ -1,0 +1,110 @@
+<%- include('partials/cabecera') %>
+
+<section class="seccion">
+  <div class="contenedor">
+    <div class="panel-cabecera">
+      <div>
+        <p class="etiqueta etiqueta-oscura">Mi panel</p>
+        <h1>Hola, <%= estudiante.nombres %></h1>
+        <p class="texto-suave">
+          Cédula <strong><%= estudiante.cedula %></strong> · Cuenta creada el
+          <%= formatearFecha(estudiante.creado_en, false) %>
+        </p>
+      </div>
+      <a href="/inscribir" class="boton boton-primario">Nueva inscripción</a>
+    </div>
+
+    <% const activas = inscripciones.filter((i) => i.estado !== 'ANULADA'); %>
+    <% const impresas = inscripciones.filter((i) => i.impresiones > 0).length; %>
+
+    <div class="rejilla-estadisticas">
+      <div class="estadistica">
+        <span class="estadistica-numero"><%= activas.length %></span>
+        <span class="estadistica-texto">inscripciones activas</span>
+      </div>
+      <div class="estadistica">
+        <span class="estadistica-numero"><%= new Set(activas.map((i) => i.carrera_id)).size %></span>
+        <span class="estadistica-texto">carreras registradas</span>
+      </div>
+      <div class="estadistica">
+        <span class="estadistica-numero"><%= impresas %></span>
+        <span class="estadistica-texto">comprobantes impresos</span>
+      </div>
+    </div>
+
+    <div class="panel-grid">
+      <div>
+        <h2 class="subtitulo">Mis inscripciones</h2>
+
+        <% if (inscripciones.length === 0) { %>
+          <div class="tarjeta estado-vacio">
+            <h3>Todavía no tienes inscripciones</h3>
+            <p>Elige una carrera, semestre y turno para generar tu comprobante.</p>
+            <a href="/inscribir" class="boton boton-primario">Inscribirme ahora</a>
+          </div>
+        <% } else { %>
+          <div class="lista-inscripciones">
+            <% inscripciones.forEach((inscripcion) => { %>
+              <article class="tarjeta-inscripcion">
+                <div class="inscripcion-principal">
+                  <div class="inscripcion-titulo">
+                    <h3><%= inscripcion.carrera %></h3>
+                    <span class="estado estado-<%= inscripcion.estado.toLowerCase() %>"><%= inscripcion.estado %></span>
+                  </div>
+                  <p class="inscripcion-codigo">Código <strong><%= inscripcion.codigo %></strong></p>
+                  <dl class="inscripcion-datos">
+                    <div><dt>Semestre</dt><dd><%= numeroRomano(inscripcion.semestre) %></dd></div>
+                    <div><dt>Turno</dt><dd><%= inscripcion.turno %></dd></div>
+                    <div><dt>Asignaturas</dt><dd><%= inscripcion.total_asignaturas %></dd></div>
+                    <div><dt>Fecha</dt><dd><%= formatearFecha(inscripcion.fecha_inscripcion) %></dd></div>
+                  </dl>
+                </div>
+                <div class="inscripcion-acciones">
+                  <a href="/comprobante/<%= encodeURIComponent(inscripcion.codigo) %>" class="boton boton-contorno boton-pequeno">
+                    Ver comprobante
+                  </a>
+                  <a href="comprobantesvb://imprimir/<%= encodeURIComponent(inscripcion.codigo) %>"
+                     class="boton boton-fantasma boton-pequeno"
+                     title="Abre Visual Basic e imprime directamente desde la base de datos">
+                    Imprimir con VB
+                  </a>
+                  <% if (inscripcion.impreso_en) { %>
+                    <span class="impreso-nota">Última impresión: <%= formatearFecha(inscripcion.impreso_en) %></span>
+                  <% } %>
+                </div>
+              </article>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <aside class="lateral">
+        <div class="tarjeta tarjeta-suave">
+          <h2>Datos personales</h2>
+          <dl class="lista-datos">
+            <div><dt>Nombres</dt><dd><%= estudiante.nombres %> <%= estudiante.apellidos %></dd></div>
+            <div><dt>Cédula</dt><dd><%= estudiante.cedula %></dd></div>
+            <div><dt>Correo</dt><dd><%= estudiante.email %></dd></div>
+            <div><dt>Teléfono</dt><dd><%= estudiante.telefono || '—' %></dd></div>
+            <div><dt>Nacimiento</dt><dd><%= formatearFecha(estudiante.fecha_nacimiento, false) %></dd></div>
+            <div><dt>Dirección</dt><dd><%= estudiante.direccion || '—' %></dd></div>
+          </dl>
+          <p class="nota-pequena">
+            Si algún dato es incorrecto, solicita la corrección en Control de Estudios.
+          </p>
+        </div>
+
+        <div class="tarjeta tarjeta-aviso">
+          <h3>¿Cómo obtengo mi comprobante impreso?</h3>
+          <p>
+            Puedes usar «Imprimir con VB» para imprimir directamente desde la base de datos con la
+            aplicación de escritorio, o presentar tu cédula en Control de Estudios. Si la aplicación
+            no está instalada en este equipo, abre el comprobante y usa «Imprimir en el navegador».
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

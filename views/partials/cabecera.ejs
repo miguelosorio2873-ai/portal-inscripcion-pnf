@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= titulo %> · Portal de Inscripción PNF</title>
+  <meta name="description" content="Portal de inscripción universitaria de los Programas Nacionales de Formación: Informática, Veterinaria, Administración y Agroalimentaria.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/estilos.css?v=3">
+</head>
+<body>
+  <a class="salto-contenido" href="#contenido">Saltar al contenido</a>
+
+  <header class="encabezado">
+    <div class="contenedor barra">
+      <a class="marca" href="/">
+        <img class="marca-imagen" src="/img/logo-uptll.jpg" width="121" height="52"
+             alt="UPTLL · Universidad Politécnica Territorial de Los Llanos Juana Ramírez">
+        <span class="marca-texto">
+          <strong>Portal de Inscripción</strong>
+          <small>Control de Estudios</small>
+        </span>
+      </a>
+
+      <nav class="menu" aria-label="Navegación principal">
+        <a href="/" class="<%= rutaActiva === '/' ? 'activo' : '' %>">Inicio</a>
+        <a href="/#carreras">Carreras</a>
+        <% if (estudiante) { %>
+          <a href="/panel" class="<%= rutaActiva === '/panel' ? 'activo' : '' %>">Mi panel</a>
+          <a href="/inscribir" class="boton boton-primario boton-pequeno">Inscribirme</a>
+          <form action="/salir" method="post" class="en-linea">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="boton boton-fantasma boton-pequeno">Salir</button>
+          </form>
+        <% } else { %>
+          <a href="/ingresar" class="<%= rutaActiva === '/ingresar' ? 'activo' : '' %>">Ingresar</a>
+          <a href="/registro" class="boton boton-primario boton-pequeno">Registrarme</a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <% if (flash) { %>
+      <div class="contenedor">
+        <div class="aviso aviso-<%= flash.tipo === 'exito' ? 'exito' : 'error' %>" role="status">
+          <span><%= flash.texto %></span>
+        </div>
+      </div>
+    <% } %>

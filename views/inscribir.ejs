@@ -1,0 +1,139 @@
+<%- include('partials/cabecera') %>
+<% const seleccionadas = valores.asignaturas || []; %>
+<% const disponibles = valores.disponibles || []; %>
+
+<section class="seccion">
+  <div class="contenedor">
+    <div class="migas"><a href="/panel">Mi panel</a> <span aria-hidden="true">/</span> <span>Nueva inscripción</span></div>
+
+    <div class="panel-cabecera">
+      <div>
+        <p class="etiqueta etiqueta-oscura">Formulario de inscripción</p>
+        <h1>Nueva inscripción</h1>
+        <p class="texto-suave">Selecciona tu carrera, semestre, turno y las asignaturas a cursar.</p>
+      </div>
+    </div>
+
+    <% if (errores.general) { %>
+      <div class="aviso aviso-error" role="alert"><span><%= errores.general %></span></div>
+    <% } %>
+
+    <form method="post" action="/inscribir" class="inscripcion-form" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="inscripcion-grid">
+        <div class="tarjeta formulario-tarjeta">
+          <h2 class="subtitulo">Datos académicos</h2>
+
+          <div class="grupo-campos">
+            <div class="campo">
+              <label for="carrera_id">Carrera <span class="requerido">*</span></label>
+              <select id="carrera_id" name="carrera_id" class="<%= errores.carrera_id ? 'invalido' : '' %>" required>
+                <option value="">Selecciona una carrera</option>
+                <% carreras.forEach((carrera) => { %>
+                  <option value="<%= carrera.id %>"
+                    <%= String(carrera.id) === String(valores.carrera_id) ? 'selected' : '' %>>
+                    <%= carrera.nombre %>
+                  </option>
+                <% }) %>
+              </select>
+              <% if (errores.carrera_id) { %><p class="error-campo"><%= errores.carrera_id %></p><% } %>
+            </div>
+
+            <div class="campo">
+              <label for="semestre">Semestre <span class="requerido">*</span></label>
+              <select id="semestre" name="semestre" class="<%= errores.semestre ? 'invalido' : '' %>" required>
+                <option value="">Selecciona el semestre</option>
+                <% semestres.forEach((semestre) => { %>
+                  <option value="<%= semestre %>"
+                    <%= String(semestre) === String(valores.semestre) ? 'selected' : '' %>>
+                    Semestre <%= numeroRomano(semestre) %>
+                  </option>
+                <% }) %>
+              </select>
+              <% if (errores.semestre) { %><p class="error-campo"><%= errores.semestre %></p><% } %>
+            </div>
+          </div>
+
+          <fieldset class="campo-grupo">
+            <legend>Turno <span class="requerido">*</span></legend>
+            <div class="opciones-turno">
+              <% turnos.forEach((turno) => { %>
+                <label class="opcion-radio">
+                  <input type="radio" name="turno" value="<%= turno %>"
+                    <%= valores.turno === turno ? 'checked' : '' %> required>
+                  <span><%= turno %></span>
+                </label>
+              <% }) %>
+            </div>
+            <% if (errores.turno) { %><p class="error-campo"><%= errores.turno %></p><% } %>
+          </fieldset>
+
+          <div class="campo-grupo">
+            <div class="campo-grupo-cabecera">
+              <h3>Asignaturas del semestre</h3>
+              <span class="contador-asignaturas" id="contador-asignaturas">0 seleccionadas</span>
+            </div>
+            <p class="ayuda">Las asignaturas se cargan según la carrera y el semestre elegidos.</p>
+
+            <div id="lista-asignaturas" class="lista-asignaturas" data-seleccionadas="<%= seleccionadas.join(',') %>">
+              <% if (disponibles.length > 0) { %>
+                <% disponibles.forEach((asignatura) => { %>
+                  <label class="opcion-asignatura">
+                    <input type="checkbox" name="asignaturas" value="<%= asignatura.id %>"
+                      <%= seleccionadas.includes(asignatura.id) ? 'checked' : '' %>>
+                    <span>
+                      <strong><%= asignatura.nombre %></strong>
+                      <small><%= asignatura.codigo %></small>
+                    </span>
+                  </label>
+                <% }) %>
+              <% } else { %>
+                <p class="asignaturas-vacio">Selecciona una carrera y un semestre para ver las asignaturas.</p>
+              <% } %>
+            </div>
+            <% if (errores.asignaturas) { %><p class="error-campo"><%= errores.asignaturas %></p><% } %>
+          </div>
+
+          <div class="campo">
+            <label for="observaciones">Observaciones <span class="opcional">(opcional)</span></label>
+            <textarea id="observaciones" name="observaciones" rows="3" maxlength="500"
+                      placeholder="Información adicional para Control de Estudios"><%= valores.observaciones || '' %></textarea>
+          </div>
+
+          <div class="acciones-formulario">
+            <button type="submit" class="boton boton-primario boton-grande">Registrar inscripción</button>
+            <a href="/panel" class="boton boton-fantasma">Cancelar</a>
+          </div>
+        </div>
+
+        <aside class="lateral">
+          <div class="tarjeta resumen-inscripcion">
+            <h2>Resumen</h2>
+            <dl class="lista-datos">
+              <div><dt>Estudiante</dt><dd><%= estudiante.nombres %> <%= estudiante.apellidos %></dd></div>
+              <div><dt>Cédula</dt><dd><%= estudiante.cedula %></dd></div>
+              <div><dt>Carrera</dt><dd id="resumen-carrera">Sin seleccionar</dd></div>
+              <div><dt>Semestre</dt><dd id="resumen-semestre">Sin seleccionar</dd></div>
+              <div><dt>Turno</dt><dd id="resumen-turno">Sin seleccionar</dd></div>
+              <div><dt>Asignaturas</dt><dd id="resumen-asignaturas">0</dd></div>
+            </dl>
+            <p class="nota-pequena">
+              Al registrar la inscripción se generará un código de comprobante único.
+            </p>
+          </div>
+
+          <div class="tarjeta tarjeta-aviso">
+            <h3>Importante</h3>
+            <p>
+              Solo puedes tener una inscripción por carrera y semestre. Si necesitas cambios,
+              acude a Control de Estudios.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

@@ -1,0 +1,21 @@
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie-contenido">
+      <div>
+        <strong>Portal de Inscripción · Programas Nacionales de Formación</strong>
+        <p>Informática · Veterinaria · Administración · Agroalimentaria</p>
+      </div>
+      <div class="pie-datos">
+        <p>Comprobantes impresos desde el portal o desde la aplicación de escritorio (Visual Basic).</p>
+        <p>© <%= anio %> Control de Estudios</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/app.js?v=3" defer></script>
+  <% if (typeof paginaScript !== 'undefined' && paginaScript) { %>
+    <script src="<%= paginaScript %>?v=3" defer></script>
+  <% } %>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<%- include('partials/cabecera') %>
+<% const v = (campo) => valores[campo] || ''; %>
+
+<section class="seccion">
+  <div class="contenedor">
+    <div class="migas"><a href="/">Inicio</a> <span aria-hidden="true">/</span> <span>Crear cuenta</span></div>
+
+    <div class="pagina-formulario">
+      <div class="tarjeta formulario-tarjeta">
+        <header class="formulario-cabecera">
+          <p class="etiqueta etiqueta-oscura">Registro de estudiante</p>
+          <h1>Crea tu cuenta</h1>
+          <p>Estos datos se usarán en tu comprobante de inscripción. Verifica que sean correctos.</p>
+        </header>
+
+        <form method="post" action="/registro" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="grupo-campos">
+            <div class="campo">
+              <label for="cedula">Cédula <span class="requerido">*</span></label>
+              <input id="cedula" name="cedula" type="text" inputmode="text" autocomplete="off"
+                     placeholder="V-12345678" value="<%= v('cedula') %>"
+                     class="<%= errores.cedula ? 'invalido' : '' %>"
+                     <%= errores.cedula ? 'aria-invalid="true"' : '' %> required>
+              <% if (errores.cedula) { %><p class="error-campo"><%= errores.cedula %></p><% } %>
+            </div>
+
+            <div class="campo">
+              <label for="email">Correo electrónico <span class="requerido">*</span></label>
+              <input id="email" name="email" type="email" autocomplete="email" maxlength="190"
+                     placeholder="nombre@correo.com" value="<%= v('email') %>"
+                     class="<%= errores.email ? 'invalido' : '' %>"
+                     <%= errores.email ? 'aria-invalid="true"' : '' %> required>
+              <% if (errores.email) { %><p class="error-campo"><%= errores.email %></p><% } %>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="campo">
+              <label for="nombres">Nombres <span class="requerido">*</span></label>
+              <input id="nombres" name="nombres" type="text" autocomplete="given-name"
+                     value="<%= v('nombres') %>" class="<%= errores.nombres ? 'invalido' : '' %>"
+                     <%= errores.nombres ? 'aria-invalid="true"' : '' %> required>
+              <% if (errores.nombres) { %><p class="error-campo"><%= errores.nombres %></p><% } %>
+            </div>
+
+            <div class="campo">
+              <label for="apellidos">Apellidos <span class="requerido">*</span></label>
+              <input id="apellidos" name="apellidos" type="text" autocomplete="family-name"
+                     value="<%= v('apellidos') %>" class="<%= errores.apellidos ? 'invalido' : '' %>"
+                     <%= errores.apellidos ? 'aria-invalid="true"' : '' %> required>
+              <% if (errores.apellidos) { %><p class="error-campo"><%= errores.apellidos %></p><% } %>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="campo">
+              <label for="telefono">Teléfono</label>
+              <input id="telefono" name="telefono" type="tel" autocomplete="tel"
+                     placeholder="0414-0000000" value="<%= v('telefono') %>"
+                     class="<%= errores.telefono ? 'invalido' : '' %>">
+              <% if (errores.telefono) { %><p class="error-campo"><%= errores.telefono %></p><% } %>
+            </div>
+
+            <div class="campo">
+              <label for="fecha_nacimiento">Fecha de nacimiento</label>
+              <input id="fecha_nacimiento" name="fecha_nacimiento" type="date"
+                     value="<%= v('fecha_nacimiento') %>"
+                     class="<%= errores.fecha_nacimiento ? 'invalido' : '' %>">
+              <% if (errores.fecha_nacimiento) { %><p class="error-campo"><%= errores.fecha_nacimiento %></p><% } %>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="campo">
+              <label for="sexo">Sexo</label>
+              <select id="sexo" name="sexo">
+                <option value="">Prefiero no indicar</option>
+                <option value="F" <%= v('sexo') === 'F' ? 'selected' : '' %>>Femenino</option>
+                <option value="M" <%= v('sexo') === 'M' ? 'selected' : '' %>>Masculino</option>
+                <option value="O" <%= v('sexo') === 'O' ? 'selected' : '' %>>Otro</option>
+              </select>
+            </div>
+
+            <div class="campo campo-completo">
+              <label for="direccion">Dirección</label>
+              <input id="direccion" name="direccion" type="text" autocomplete="street-address" maxlength="255"
+                     placeholder="Ciudad, sector, calle y número" value="<%= v('direccion') %>"
+                     class="<%= errores.direccion ? 'invalido' : '' %>">
+              <% if (errores.direccion) { %><p class="error-campo"><%= errores.direccion %></p><% } %>
+            </div>
+          </div>
+
+          <hr class="separador">
+
+          <div class="grupo-campos">
+            <div class="campo">
+              <label for="password">Contraseña <span class="requerido">*</span></label>
+              <input id="password" name="password" type="password" autocomplete="new-password"
+                     minlength="8" class="<%= errores.password ? 'invalido' : '' %>" required>
+              <p class="ayuda">Mínimo 8 caracteres.</p>
+              <% if (errores.password) { %><p class="error-campo"><%= errores.password %></p><% } %>
+            </div>
+
+            <div class="campo">
+              <label for="confirmar_password">Confirmar contraseña <span class="requerido">*</span></label>
+              <input id="confirmar_password" name="confirmar_password" type="password"
+                     autocomplete="new-password" minlength="8"
+                     class="<%= errores.confirmar_password ? 'invalido' : '' %>" required>
+              <% if (errores.confirmar_password) { %><p class="error-campo"><%= errores.confirmar_password %></p><% } %>
+            </div>
+          </div>
+
+          <div class="acciones-formulario">
+            <button type="submit" class="boton boton-primario boton-grande">Crear cuenta</button>
+            <p class="texto-suave">¿Ya tienes cuenta? <a href="/ingresar">Inicia sesión</a></p>
+          </div>
+        </form>
+      </div>
+
+      <aside class="lateral">
+        <div class="tarjeta tarjeta-suave">
+          <h2>Antes de empezar</h2>
+          <ul class="lista-verificacion">
+            <li>Ten a mano tu cédula de identidad.</li>
+            <li>Usa un correo electrónico que revises con frecuencia.</li>
+            <li>Escribe tus nombres y apellidos tal como aparecen en tu documento.</li>
+            <li>Elige una contraseña que no uses en otros sitios.</li>
+          </ul>
+        </div>
+
+        <div class="tarjeta tarjeta-aviso">
+          <h3>Tu comprobante</h3>
+          <p>
+            Al finalizar la inscripción obtendrás un código único (por ejemplo
+            <strong>INS-<%= anio %>-000128</strong>). Con ese código Control de Estudios
+            imprime tu comprobante oficial.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pie') %>

@@ -1,0 +1,147 @@
+<%- include('partials/cabecera') %>
+
+<section class="seccion seccion-comprobante">
+  <div class="contenedor">
+    <div class="acciones-comprobante no-imprimir">
+      <a href="/panel" class="boton boton-fantasma">← Volver al panel</a>
+      <div class="acciones-impresion">
+        <a class="boton boton-primario" id="boton-imprimir-vb"
+           href="comprobantesvb://imprimir/<%= encodeURIComponent(inscripcion.codigo) %>"
+           title="Abre Visual Basic, consulta los datos directamente en la base de datos e imprime en la impresora predeterminada">
+          Imprimir con Visual Basic
+        </a>
+        <button type="button" class="boton boton-fantasma" id="boton-imprimir">Imprimir en el navegador</button>
+      </div>
+    </div>
+
+    <article class="comprobante" id="comprobante" data-auto-imprimir="<%= autoImprimir ? '1' : '0' %>">
+      <header class="comprobante-encabezado">
+        <div class="comprobante-institucion">
+          <img class="comprobante-logo" src="/img/logo-uptll.jpg" width="130" height="56"
+               alt="UPTLL · Universidad Politécnica Territorial de Los Llanos Juana Ramírez">
+          <div>
+            <strong>Programas Nacionales de Formación</strong>
+            <span>Coordinación de Control de Estudios</span>
+          </div>
+        </div>
+        <div class="comprobante-tipo">
+          <span>Comprobante de inscripción</span>
+          <strong><%= inscripcion.codigo %></strong>
+        </div>
+      </header>
+
+      <div class="comprobante-titulo">
+        <h1>Constancia de inscripción</h1>
+        <div class="comprobante-sellos">
+          <span class="estado estado-<%= inscripcion.estado.toLowerCase() %>"><%= inscripcion.estado %></span>
+        </div>
+      </div>
+
+      <p class="comprobante-intro">
+        Se certifica que el (la) ciudadano(a) <strong><%= inscripcion.nombres %> <%= inscripcion.apellidos %></strong>,
+        titular de la cédula de identidad <strong><%= inscripcion.cedula %></strong>, quedó inscrito(a) en el
+        <strong><%= inscripcion.carrera %></strong> para el semestre
+        <strong><%= numeroRomano(inscripcion.semestre) %></strong>, en el turno
+        <strong><%= inscripcion.turno %></strong>.
+      </p>
+
+      <div class="comprobante-columnas">
+        <section>
+          <h2>Datos del estudiante</h2>
+          <dl class="comprobante-datos">
+            <div><dt>Cédula</dt><dd><%= inscripcion.cedula %></dd></div>
+            <div><dt>Nombres y apellidos</dt><dd><%= inscripcion.nombres %> <%= inscripcion.apellidos %></dd></div>
+            <div><dt>Correo</dt><dd><%= inscripcion.email %></dd></div>
+            <div><dt>Teléfono</dt><dd><%= inscripcion.telefono || '—' %></dd></div>
+            <div><dt>Fecha de nacimiento</dt><dd><%= formatearFecha(inscripcion.fecha_nacimiento, false) %></dd></div>
+            <div><dt>Dirección</dt><dd><%= inscripcion.direccion || '—' %></dd></div>
+          </dl>
+        </section>
+
+        <section>
+          <h2>Datos de la inscripción</h2>
+          <dl class="comprobante-datos">
+            <div><dt>Código</dt><dd><%= inscripcion.codigo %></dd></div>
+            <div><dt>Carrera</dt><dd><%= inscripcion.carrera %></dd></div>
+            <div><dt>Semestre</dt><dd><%= numeroRomano(inscripcion.semestre) %></dd></div>
+            <div><dt>Turno</dt><dd><%= inscripcion.turno %></dd></div>
+            <div><dt>Fecha</dt><dd><%= fechaLarga(inscripcion.fecha_inscripcion) %></dd></div>
+            <div><dt>Hora de registro</dt><dd><%= formatearFecha(inscripcion.fecha_inscripcion) %></dd></div>
+          </dl>
+        </section>
+      </div>
+
+      <section class="comprobante-materias">
+        <h2>Asignaturas inscritas</h2>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Código</th>
+              <th scope="col">Asignatura</th>
+              <th scope="col">Semestre</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (asignaturas.length === 0) { %>
+              <tr><td colspan="3">Sin asignaturas registradas.</td></tr>
+            <% } %>
+            <% asignaturas.forEach((asignatura) => { %>
+              <tr>
+                <td><%= asignatura.codigo %></td>
+                <td><%= asignatura.nombre %></td>
+                <td><%= numeroRomano(asignatura.semestre) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </section>
+
+      <% if (inscripcion.observaciones) { %>
+        <section class="comprobante-observaciones">
+          <h2>Observaciones</h2>
+          <p><%= inscripcion.observaciones %></p>
+        </section>
+      <% } %>
+
+      <footer class="comprobante-pie">
+        <div class="firmas">
+          <div class="firma">
+            <span class="linea-firma"></span>
+            <p>Firma del estudiante</p>
+            <small><%= inscripcion.cedula %></small>
+          </div>
+          <div class="firma">
+            <span class="linea-firma"></span>
+            <p>Control de Estudios</p>
+            <small>Sello y firma</small>
+          </div>
+        </div>
+
+        <div class="comprobante-leyenda">
+          <p>
+            Documento generado por el Portal de Inscripción PNF. Válido con sello húmedo de Control de Estudios.
+            Código de verificación: <strong><%= inscripcion.codigo %></strong>.
+          </p>
+          <p>
+            Emitido el <%= fechaLarga(inscripcion.fecha_inscripcion) %>.
+            <% if (inscripcion.impreso_en) { %>
+              · Impreso el <%= formatearFecha(inscripcion.impreso_en) %> (<%= inscripcion.impresiones %> <%= inscripcion.impresiones === 1 ? 'impresión' : 'impresiones' %>).
+            <% } %>
+          </p>
+        </div>
+      </footer>
+    </article>
+
+    <p class="nota-impresion no-imprimir">
+      <strong>Impresión directa:</strong> «Imprimir con Visual Basic» abre la aplicación de escritorio, que consulta
+      la información directamente en la base de datos compartida, imprime en la impresora predeterminada y registra
+      la impresión. La aplicación debe estar instalada en este equipo y se habilita al abrirla por primera vez.
+      <br>
+      Si prefieres no usar Visual Basic, «Imprimir en el navegador» abre el diálogo del navegador; elige tamaño
+      «Carta» y desactiva encabezados y pies de página para obtener un documento limpio. La impresión desde
+      el navegador no actualiza el estado de la inscripción en la base de datos.
+    </p>
+  </div>
+</section>
+
+<%- include('partials/pie') %>
