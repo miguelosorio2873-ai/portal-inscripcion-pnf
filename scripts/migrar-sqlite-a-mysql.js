@@ -101,14 +101,16 @@ try {
 
     await conexion.execute(
       `INSERT INTO inscripciones
-         (id, codigo, estudiante_id, carrera_id, semestre, turno,
+         (id, codigo, estudiante_id, carrera_id, trayecto, tipo_ingreso, semestre, turno,
           fecha_inscripcion, estado, observaciones, impreso_en, impresiones)
-       VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?)`,
       [
         Number(inscripcion.id),
         inscripcion.codigo,
         Number(inscripcion.estudiante_id),
         carreraMysqlId,
+        Number(inscripcion.semestre),
+        inscripcion.condicion === 'FLOTANTE' ? 'FLOTANTE' : 'OPSU',
         Number(inscripcion.semestre),
         inscripcion.turno,
         inscripcion.fecha_inscripcion || null,

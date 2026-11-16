@@ -4,13 +4,12 @@
   if (!form) return;
 
   const carreraSelect = document.getElementById('carrera_id');
-  const semestreSelect = document.getElementById('semestre');
+  const trayectoSelect = document.getElementById('trayecto');
   const lista = document.getElementById('lista-asignaturas');
   const contador = document.getElementById('contador-asignaturas');
   const resumenCarrera = document.getElementById('resumen-carrera');
-  const resumenSemestre = document.getElementById('resumen-semestre');
-  const resumenTurno = document.getElementById('resumen-turno');
-  const resumenCondicion = document.getElementById('resumen-condicion');
+  const resumenTrayecto = document.getElementById('resumen-trayecto');
+  const resumenIngreso = document.getElementById('resumen-ingreso');
   const resumenAsignaturas = document.getElementById('resumen-asignaturas');
   const ROMANOS = ['I', 'II', 'III', 'IV', 'V'];
 
@@ -22,19 +21,14 @@
   const actualizarResumen = () => {
     if (!lista) return;
     const marcadas = lista.querySelectorAll('input[name="asignaturas"]:checked');
-    const turno = form.querySelector('input[name="turno"]:checked');
-    const condicion = form.querySelector('input[name="condicion"]:checked');
-    const semestre = Number(semestreSelect?.value || 0);
+    const ingreso = form.querySelector('input[name="tipo_ingreso"]:checked');
 
     if (contador) {
       contador.textContent = `${marcadas.length} seleccionada${marcadas.length === 1 ? '' : 's'}`;
     }
     if (resumenCarrera) resumenCarrera.textContent = textoSeleccionado(carreraSelect, 'Sin seleccionar');
-    if (resumenSemestre) {
-      resumenSemestre.textContent = semestre ? `Semestre ${ROMANOS[semestre - 1] || semestre}` : 'Sin seleccionar';
-    }
-    if (resumenTurno) resumenTurno.textContent = turno ? turno.value : 'Sin seleccionar';
-    if (resumenCondicion) resumenCondicion.textContent = condicion ? condicion.value : 'Sin seleccionar';
+    if (resumenTrayecto) resumenTrayecto.textContent = textoSeleccionado(trayectoSelect, 'Sin seleccionar');
+    if (resumenIngreso) resumenIngreso.textContent = ingreso ? ingreso.parentElement.textContent.trim() : 'Sin seleccionar';
     if (resumenAsignaturas) resumenAsignaturas.textContent = String(marcadas.length);
   };
 
@@ -70,10 +64,10 @@
 
   async function cargarAsignaturas() {
     const carrera = carreraSelect?.value;
-    const semestre = semestreSelect?.value;
+    const trayecto = trayectoSelect?.value;
 
-    if (!carrera || !semestre) {
-      mostrarMensaje('Selecciona una carrera y un semestre para ver las asignaturas.');
+    if (!carrera || !trayecto) {
+      mostrarMensaje('Selecciona una carrera y un trayecto para ver las asignaturas.');
       actualizarResumen();
       return;
     }
@@ -82,7 +76,7 @@
 
     try {
       const respuesta = await fetch(
-        `/api/asignaturas?carrera_id=${encodeURIComponent(carrera)}&semestre=${encodeURIComponent(semestre)}`,
+        `/api/asignaturas?carrera_id=${encodeURIComponent(carrera)}&trayecto=${encodeURIComponent(trayecto)}`,
         { headers: { Accept: 'application/json' } }
       );
       if (!respuesta.ok) throw new Error('Respuesta no valida');
@@ -91,7 +85,7 @@
       const asignaturas = Array.isArray(datos.asignaturas) ? datos.asignaturas : [];
 
       if (asignaturas.length === 0) {
-        mostrarMensaje('No hay asignaturas registradas para esta carrera y semestre.');
+        mostrarMensaje('No hay asignaturas registradas para esta carrera y trayecto.');
       } else {
         if (lista) {
           lista.replaceChildren(...asignaturas.map(crearOpcion));
@@ -105,10 +99,10 @@
   }
 
   carreraSelect?.addEventListener('change', cargarAsignaturas);
-  semestreSelect?.addEventListener('change', cargarAsignaturas);
+  trayectoSelect?.addEventListener('change', cargarAsignaturas);
   lista?.addEventListener('change', actualizarResumen);
   form.addEventListener('change', (evento) => {
-    if (evento.target.name === 'turno' || evento.target.name === 'condicion') actualizarResumen();
+    if (evento.target.name === 'tipo_ingreso') actualizarResumen();
   });
 
   actualizarResumen();

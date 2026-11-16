@@ -39,7 +39,7 @@
         <% if (inscripciones.length === 0) { %>
           <div class="tarjeta estado-vacio">
             <h3>Todavía no tienes inscripciones</h3>
-            <p>Elige una carrera, semestre y turno para generar tu comprobante.</p>
+            <p>Elige una carrera, trayecto y tipo de ingreso para generar tu comprobante.</p>
             <a href="/inscribir" class="boton boton-primario">Inscribirme ahora</a>
           </div>
         <% } else { %>
@@ -53,9 +53,8 @@
                   </div>
                   <p class="inscripcion-codigo">Código <strong><%= inscripcion.codigo %></strong></p>
                   <dl class="inscripcion-datos">
-                    <div><dt>Semestre</dt><dd><%= numeroRomano(inscripcion.semestre) %></dd></div>
-                    <div><dt>Turno</dt><dd><%= inscripcion.turno %></dd></div>
-                    <div><dt>Condición</dt><dd><%= etiquetaCondicion(inscripcion.condicion) %></dd></div>
+                    <div><dt>Trayecto</dt><dd><%= numeroRomano(inscripcion.trayecto) %></dd></div>
+                    <div><dt>Tipo de ingreso</dt><dd><%= etiquetaTipoIngreso(inscripcion.tipo_ingreso) %></dd></div>
                     <div><dt>Asignaturas</dt><dd><%= inscripcion.total_asignaturas %></dd></div>
                     <div><dt>Fecha</dt><dd><%= formatearFecha(inscripcion.fecha_inscripcion) %></dd></div>
                   </dl>
@@ -64,9 +63,9 @@
                   <a href="/comprobante/<%= encodeURIComponent(inscripcion.codigo) %>" class="boton boton-contorno boton-pequeno">
                     Ver comprobante
                   </a>
-                  <a href="comprobantesvb://imprimir/<%= encodeURIComponent(inscripcion.codigo) %>"
+                  <a href="inscripcionopsu://imprimir/<%= encodeURIComponent(inscripcion.codigo) %>"
                      class="boton boton-fantasma boton-pequeno"
-                     title="Abre Visual Basic e imprime directamente desde la base de datos">
+                     title="Abre el sistema en Visual Basic e imprime directamente desde la base de datos">
                     Imprimir con VB
                   </a>
                   <% if (inscripcion.impreso_en) { %>

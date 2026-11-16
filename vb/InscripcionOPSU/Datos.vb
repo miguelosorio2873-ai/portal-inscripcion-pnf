@@ -2,16 +2,22 @@ Option Strict On
 Option Explicit On
 
 Imports System.Collections.Generic
+Imports System.Globalization
+Imports System.Linq
 Imports MySql.Data.MySqlClient
 Imports InscripcionOPSU.Modelos
 
 ''' <summary>
-''' Acceso a datos (MySQL). Toda la persistencia del sistema pasa por aquí.
+''' Acceso a datos (MySQL). Trabaja sobre la MISMA base que el portal web
+''' (portal_pnf): inscripciones por trayecto y tipo de ingreso, sin turnos.
 ''' </summary>
 Friend NotInheritable Class Datos
 
     Private Sub New()
     End Sub
+
+    ''' <summary>Trayectos válidos del PNF (I a V).</summary>
+    Public Shared ReadOnly Trayectos As Integer() = {1, 2, 3, 4, 5}
 
     ' ------------------------------------------------------------------ conexión
 
@@ -28,6 +34,16 @@ Friend NotInheritable Class Datos
         End Using
     End Sub
 
+    ''' <summary>Ejecuta un ajuste tolerando que la columna o el índice ya exista.</summary>
+    Private Shared Sub EjecutarAjuste(conexion As MySqlConnection, sql As String)
+        Try
+            Ejecutar(conexion, sql)
+        Catch ex As MySqlException
+            ' 1060 columna duplicada · 1061 índice duplicado · 1091 no existe
+            If ex.Number <> 1060 AndAlso ex.Number <> 1061 AndAlso ex.Number <> 1091 Then Throw
+        End Try
+    End Sub
+
     ''' <summary>Crea la base de datos, las tablas y los catálogos iniciales.</summary>
     Public Shared Sub AsegurarEsquema()
         Dim baseDatos As String = Configuracion.Actual.BaseDatos
@@ -42,10 +58,12 @@ Friend NotInheritable Class Datos
             For Each sql As String In Esquema.Carreras
                 Ejecutar(conexion, sql)
             Next
-            For Each sql As String In Esquema.Trayectos
+            For Each sql As String In Esquema.Ajustes
+                EjecutarAjuste(conexion, sql)
+            Next
+            For Each sql As String In Esquema.Asignaturas
                 Ejecutar(conexion, sql)
             Next
-            Ejecutar(conexion, Esquema.PeriodoInicial())
         End Using
     End Sub
 
@@ -55,7 +73,7 @@ Friend NotInheritable Class Datos
         Dim lista As New List(Of Carrera)()
         Using conexion As MySqlConnection = Abrir()
             Using comando As MySqlCommand = conexion.CreateCommand()
-                comando.CommandText = "SELECT id, codigo, nombre FROM carreras WHERE activa = 1 ORDER BY nombre"
+                comando.CommandText = "SELECT id, codigo, nombre FROM carreras ORDER BY nombre"
                 Using lector As MySqlDataReader = comando.ExecuteReader()
                     While lector.Read()
                         lista.Add(New Carrera With {
@@ -70,38 +88,9 @@ Friend NotInheritable Class Datos
         Return lista
     End Function
 
+    ''' <summary>Los trayectos son fijos (I a V), igual que en el portal.</summary>
     Public Shared Function ListarTrayectos() As List(Of Integer)
-        Dim lista As New List(Of Integer)()
-        Using conexion As MySqlConnection = Abrir()
-            Using comando As MySqlCommand = conexion.CreateCommand()
-                comando.CommandText = "SELECT numero FROM trayectos ORDER BY numero"
-                Using lector As MySqlDataReader = comando.ExecuteReader()
-                    While lector.Read()
-                        lista.Add(lector.GetInt32("numero"))
-                    End While
-                End Using
-            End Using
-        End Using
-        Return lista
-    End Function
-
-    Public Shared Function PeriodoActivo() As Periodo
-        Using conexion As MySqlConnection = Abrir()
-            Using comando As MySqlCommand = conexion.CreateCommand()
-                comando.CommandText = "SELECT id, codigo, nombre, activo FROM periodos ORDER BY activo DESC, id DESC LIMIT 1"
-                Using lector As MySqlDataReader = comando.ExecuteReader()
-                    If lector.Read() Then
-                        Return New Periodo With {
-                            .Id = lector.GetInt32("id"),
-                            .Codigo = lector.GetString("codigo"),
-                            .Nombre = lector.GetString("nombre"),
-                            .Activo = lector.GetBoolean("activo")
-                        }
-                    End If
-                End Using
-            End Using
-        End Using
-        Return New Periodo With {.Id = 0, .Codigo = "", .Nombre = "Sin periodo"}
+        Return New List(Of Integer)(Trayectos)
     End Function
 
     ' ------------------------------------------------------------------ estudiantes
@@ -194,64 +183,117 @@ Friend NotInheritable Class Datos
 
     ' ------------------------------------------------------------------ inscripciones
 
-    ''' <summary>Registra (o actualiza) la inscripción de un estudiante en un trayecto.</summary>
+    ''' <summary>
+    ''' Registra (o actualiza) la inscripción de un estudiante en un trayecto.
+    ''' Devuelve el código del comprobante. Si es nueva, inscribe todas las
+    ''' asignaturas del trayecto.
+    ''' </summary>
     Public Shared Function GuardarInscripcion(estudianteId As Integer, carreraId As Integer, trayecto As Integer,
-                                              periodoId As Integer, modalidad As TipoIngreso, observaciones As String) As Integer
+                                              tipoIngreso As TipoIngreso, observaciones As String) As String
+        If Not Trayectos.Contains(trayecto) Then
+            Throw New ArgumentOutOfRangeException(NameOf(trayecto), "El trayecto debe estar entre I y V.")
+        End If
+
         Using conexion As MySqlConnection = Abrir()
+            Dim existenteId As Integer = 0
+            Dim codigo As String = ""
+
             Using comando As MySqlCommand = conexion.CreateCommand()
                 comando.CommandText =
-                    "INSERT INTO inscripciones (estudiante_id, carrera_id, trayecto, periodo_id, modalidad, estatus, observaciones) " &
-                    "VALUES (@estudiante, @carrera, @trayecto, @periodo, @modalidad, 'INSCRITA', @observaciones) " &
-                    "ON DUPLICATE KEY UPDATE modalidad = VALUES(modalidad), estatus = 'INSCRITA', " &
-                    "  observaciones = VALUES(observaciones), fecha_inscripcion = NOW(), id = LAST_INSERT_ID(id)"
+                    "SELECT id, codigo FROM inscripciones " &
+                    " WHERE estudiante_id = @estudiante AND carrera_id = @carrera AND trayecto = @trayecto LIMIT 1"
                 comando.Parameters.AddWithValue("@estudiante", estudianteId)
                 comando.Parameters.AddWithValue("@carrera", carreraId)
                 comando.Parameters.AddWithValue("@trayecto", trayecto)
-                comando.Parameters.AddWithValue("@periodo", periodoId)
-                comando.Parameters.AddWithValue("@modalidad", If(modalidad = TipoIngreso.OPSU, "OPSU", "FLOTANTE"))
-                comando.Parameters.AddWithValue("@observaciones", If(String.IsNullOrWhiteSpace(observaciones), CObj(DBNull.Value), observaciones.Trim()))
-                comando.ExecuteNonQuery()
-                Return CInt(comando.LastInsertedId)
+                Using lector As MySqlDataReader = comando.ExecuteReader()
+                    If lector.Read() Then
+                        existenteId = lector.GetInt32("id")
+                        codigo = lector.GetString("codigo")
+                    End If
+                End Using
             End Using
+
+            Using transaccion As MySqlTransaction = conexion.BeginTransaction()
+                If existenteId > 0 Then
+                    Using comando As MySqlCommand = conexion.CreateCommand()
+                        comando.Transaction = transaccion
+                        comando.CommandText =
+                            "UPDATE inscripciones SET tipo_ingreso = @ingreso, estado = 'REGISTRADA', " &
+                            "  observaciones = @observaciones, fecha_inscripcion = NOW(), impreso_en = NULL, impresiones = 0 " &
+                            " WHERE id = @id"
+                        comando.Parameters.AddWithValue("@ingreso", If(tipoIngreso = TipoIngreso.OPSU, "OPSU", "FLOTANTE"))
+                        comando.Parameters.AddWithValue("@observaciones", If(String.IsNullOrWhiteSpace(observaciones), CObj(DBNull.Value), observaciones.Trim()))
+                        comando.Parameters.AddWithValue("@id", existenteId)
+                        comando.ExecuteNonQuery()
+                    End Using
+                Else
+                    Using comando As MySqlCommand = conexion.CreateCommand()
+                        comando.Transaction = transaccion
+                        comando.CommandText =
+                            "INSERT INTO inscripciones (codigo, estudiante_id, carrera_id, trayecto, tipo_ingreso, observaciones) " &
+                            "VALUES (@temporal, @estudiante, @carrera, @trayecto, @ingreso, @observaciones)"
+                        comando.Parameters.AddWithValue("@temporal", "TMP-" & Guid.NewGuid().ToString("N"))
+                        comando.Parameters.AddWithValue("@estudiante", estudianteId)
+                        comando.Parameters.AddWithValue("@carrera", carreraId)
+                        comando.Parameters.AddWithValue("@trayecto", trayecto)
+                        comando.Parameters.AddWithValue("@ingreso", If(tipoIngreso = TipoIngreso.OPSU, "OPSU", "FLOTANTE"))
+                        comando.Parameters.AddWithValue("@observaciones", If(String.IsNullOrWhiteSpace(observaciones), CObj(DBNull.Value), observaciones.Trim()))
+                        comando.ExecuteNonQuery()
+                        existenteId = CInt(comando.LastInsertedId)
+                    End Using
+
+                    codigo = String.Format(CultureInfo.InvariantCulture, "INS-{0}-{1:000000}", DateTime.Now.Year, existenteId)
+                    Using comando As MySqlCommand = conexion.CreateCommand()
+                        comando.Transaction = transaccion
+                        comando.CommandText = "UPDATE inscripciones SET codigo = @codigo WHERE id = @id"
+                        comando.Parameters.AddWithValue("@codigo", codigo)
+                        comando.Parameters.AddWithValue("@id", existenteId)
+                        comando.ExecuteNonQuery()
+                    End Using
+
+                    Using comando As MySqlCommand = conexion.CreateCommand()
+                        comando.Transaction = transaccion
+                        comando.CommandText =
+                            "INSERT IGNORE INTO inscripcion_asignaturas (inscripcion_id, asignatura_id) " &
+                            "SELECT @inscripcion, id FROM asignaturas WHERE carrera_id = @carrera AND trayecto = @trayecto"
+                        comando.Parameters.AddWithValue("@inscripcion", existenteId)
+                        comando.Parameters.AddWithValue("@carrera", carreraId)
+                        comando.Parameters.AddWithValue("@trayecto", trayecto)
+                        comando.ExecuteNonQuery()
+                    End Using
+                End If
+
+                transaccion.Commit()
+            End Using
+
+            Return codigo
         End Using
     End Function
 
-    ''' <summary>Listado de inscripciones con filtros opcionales por trayecto, modalidad y carrera.</summary>
-    Public Shared Function ListarInscripciones(trayecto As Integer, modalidad As String, carreraId As Integer) As List(Of Inscripcion)
+    ''' <summary>Listado de inscripciones con filtros opcionales por trayecto, ingreso y carrera.</summary>
+    Public Shared Function ListarInscripciones(trayecto As Integer, tipoIngreso As String, carreraId As Integer) As List(Of Inscripcion)
         Dim lista As New List(Of Inscripcion)()
         Using conexion As MySqlConnection = Abrir()
             Using comando As MySqlCommand = conexion.CreateCommand()
                 comando.CommandText =
-                    "SELECT i.id, i.estudiante_id, e.cedula, CONCAT(e.nombres, ' ', e.apellidos) AS estudiante, " &
-                    "       i.carrera_id, c.nombre AS carrera, i.trayecto, p.nombre AS periodo, i.modalidad, " &
-                    "       i.estatus, i.fecha_inscripcion, COALESCE(i.observaciones, '') AS observaciones " &
+                    "SELECT i.id, i.codigo, i.estudiante_id, e.cedula, CONCAT(e.nombres, ' ', e.apellidos) AS estudiante, " &
+                    "       i.carrera_id, c.nombre AS carrera, i.trayecto, i.tipo_ingreso, i.estado, " &
+                    "       i.fecha_inscripcion, COALESCE(i.observaciones, '') AS observaciones, " &
+                    "       i.impreso_en, i.impresiones, " &
+                    "       (SELECT COUNT(*) FROM inscripcion_asignaturas ia WHERE ia.inscripcion_id = i.id) AS total_asignaturas " &
                     "  FROM inscripciones i " &
                     "  JOIN estudiantes e ON e.id = i.estudiante_id " &
                     "  JOIN carreras c ON c.id = i.carrera_id " &
-                    "  JOIN periodos p ON p.id = i.periodo_id " &
                     " WHERE (@trayecto = 0 OR i.trayecto = @trayecto) " &
-                    "   AND (@modalidad = '' OR i.modalidad = @modalidad) " &
+                    "   AND (@ingreso = '' OR i.tipo_ingreso = @ingreso) " &
                     "   AND (@carrera = 0 OR i.carrera_id = @carrera) " &
                     " ORDER BY i.trayecto, c.nombre, e.apellidos, e.nombres"
                 comando.Parameters.AddWithValue("@trayecto", trayecto)
-                comando.Parameters.AddWithValue("@modalidad", If(modalidad Is Nothing, "", modalidad))
+                comando.Parameters.AddWithValue("@ingreso", If(tipoIngreso Is Nothing, "", tipoIngreso))
                 comando.Parameters.AddWithValue("@carrera", carreraId)
                 Using lector As MySqlDataReader = comando.ExecuteReader()
                     While lector.Read()
-                        Dim item As New Inscripcion()
-                        item.Id = lector.GetInt32("id")
-                        item.EstudianteId = lector.GetInt32("estudiante_id")
-                        item.Cedula = lector.GetString("cedula")
-                        item.Estudiante = lector.GetString("estudiante")
-                        item.CarreraId = lector.GetInt32("carrera_id")
-                        item.Carrera = lector.GetString("carrera")
-                        item.Trayecto = lector.GetInt32("trayecto")
-                        item.Periodo = lector.GetString("periodo")
-                        item.Modalidad = If(String.Equals(lector.GetString("modalidad"), "OPSU", StringComparison.OrdinalIgnoreCase), TipoIngreso.OPSU, TipoIngreso.FLOTANTE)
-                        item.Estatus = lector.GetString("estatus")
-                        item.Fecha = lector.GetDateTime("fecha_inscripcion")
-                        item.Observaciones = lector.GetString("observaciones")
-                        lista.Add(item)
+                        lista.Add(MapearInscripcion(lector))
                     End While
                 End Using
             End Using
@@ -259,20 +301,133 @@ Friend NotInheritable Class Datos
         Return lista
     End Function
 
-    ' ------------------------------------------------------------------ OPSU
+    Private Shared Function MapearInscripcion(lector As MySqlDataReader) As Inscripcion
+        Dim item As New Inscripcion()
+        item.Id = lector.GetInt32("id")
+        item.Codigo = lector.GetString("codigo")
+        item.EstudianteId = lector.GetInt32("estudiante_id")
+        item.Cedula = lector.GetString("cedula")
+        item.Estudiante = lector.GetString("estudiante")
+        item.CarreraId = lector.GetInt32("carrera_id")
+        item.Carrera = lector.GetString("carrera")
+        item.Trayecto = lector.GetInt32("trayecto")
+        item.Modalidad = If(String.Equals(lector.GetString("tipo_ingreso"), "OPSU", StringComparison.OrdinalIgnoreCase), TipoIngreso.OPSU, TipoIngreso.FLOTANTE)
+        item.Estatus = lector.GetString("estado")
+        item.Fecha = lector.GetDateTime("fecha_inscripcion")
+        item.Observaciones = lector.GetString("observaciones")
+        item.Impresiones = lector.GetInt32("impresiones")
+        If Not lector.IsDBNull(lector.GetOrdinal("impreso_en")) Then item.ImpresoEn = lector.GetDateTime("impreso_en")
+        item.TotalAsignaturas = lector.GetInt32("total_asignaturas")
+        Return item
+    End Function
 
-    ''' <summary>Registra la carga del archivo (o reutiliza la existente si el hash coincide).</summary>
-    Public Shared Function RegistrarCargaOpsu(archivo As String, hash As String, periodoId As Integer, totalFilas As Integer) As Integer
+    ''' <summary>Datos completos del comprobante (estudiante, inscripción y asignaturas).</summary>
+    Public Shared Function ObtenerInscripcionCompleta(codigo As String) As InscripcionCompleta
+        Dim datos As InscripcionCompleta = Nothing
+
         Using conexion As MySqlConnection = Abrir()
             Using comando As MySqlCommand = conexion.CreateCommand()
                 comando.CommandText =
-                    "INSERT INTO opsu_cargas (archivo, hash_sha256, periodo_id, total_filas) " &
-                    "VALUES (@archivo, @hash, @periodo, @total) " &
+                    "SELECT i.id, i.codigo, i.trayecto, i.tipo_ingreso, i.fecha_inscripcion, i.estado, " &
+                    "       COALESCE(i.observaciones, '') AS observaciones, i.impreso_en, i.impresiones, " &
+                    "       e.cedula, e.nombres, e.apellidos, e.email, e.telefono, e.fecha_nacimiento, e.direccion, " &
+                    "       c.nombre AS carrera " &
+                    "  FROM inscripciones i " &
+                    "  JOIN estudiantes e ON e.id = i.estudiante_id " &
+                    "  JOIN carreras c ON c.id = i.carrera_id " &
+                    " WHERE i.codigo = @codigo LIMIT 1"
+                comando.Parameters.AddWithValue("@codigo", codigo.Trim())
+                Using lector As MySqlDataReader = comando.ExecuteReader()
+                    If lector.Read() Then
+                        datos = New InscripcionCompleta()
+                        datos.InscripcionId = lector.GetInt32("id")
+                        datos.Codigo = lector.GetString("codigo")
+                        datos.Trayecto = lector.GetInt32("trayecto")
+                        datos.TipoIngreso = If(String.Equals(lector.GetString("tipo_ingreso"), "OPSU", StringComparison.OrdinalIgnoreCase), TipoIngreso.OPSU, TipoIngreso.FLOTANTE)
+                        datos.FechaInscripcion = lector.GetDateTime("fecha_inscripcion")
+                        datos.Estado = lector.GetString("estado")
+                        datos.Observaciones = lector.GetString("observaciones")
+                        datos.Impresiones = lector.GetInt32("impresiones")
+                        If Not lector.IsDBNull(lector.GetOrdinal("impreso_en")) Then datos.ImpresoEn = lector.GetDateTime("impreso_en")
+                        datos.Cedula = lector.GetString("cedula")
+                        datos.Nombres = lector.GetString("nombres")
+                        datos.Apellidos = lector.GetString("apellidos")
+                        If Not lector.IsDBNull(lector.GetOrdinal("email")) Then datos.Email = lector.GetString("email")
+                        If Not lector.IsDBNull(lector.GetOrdinal("telefono")) Then datos.Telefono = lector.GetString("telefono")
+                        If Not lector.IsDBNull(lector.GetOrdinal("fecha_nacimiento")) Then datos.FechaNacimiento = lector.GetDateTime("fecha_nacimiento")
+                        If Not lector.IsDBNull(lector.GetOrdinal("direccion")) Then datos.Direccion = lector.GetString("direccion")
+                        datos.Carrera = lector.GetString("carrera")
+                    End If
+                End Using
+            End Using
+
+            If datos IsNot Nothing Then
+                datos.Asignaturas = ListarAsignaturasDeInscripcion(datos.InscripcionId)
+            End If
+        End Using
+
+        Return datos
+    End Function
+
+    Public Shared Function ListarAsignaturasDeInscripcion(inscripcionId As Integer) As List(Of AsignaturaInscrita)
+        Dim lista As New List(Of AsignaturaInscrita)()
+        Using conexion As MySqlConnection = Abrir()
+            Using comando As MySqlCommand = conexion.CreateCommand()
+                comando.CommandText =
+                    "SELECT a.codigo, a.nombre, a.trayecto " &
+                    "  FROM inscripcion_asignaturas ia " &
+                    "  JOIN asignaturas a ON a.id = ia.asignatura_id " &
+                    " WHERE ia.inscripcion_id = @id ORDER BY a.codigo"
+                comando.Parameters.AddWithValue("@id", inscripcionId)
+                Using lector As MySqlDataReader = comando.ExecuteReader()
+                    While lector.Read()
+                        lista.Add(New AsignaturaInscrita With {
+                            .Codigo = lector.GetString("codigo"),
+                            .Nombre = lector.GetString("nombre"),
+                            .Trayecto = lector.GetInt32("trayecto")
+                        })
+                    End While
+                End Using
+            End Using
+        End Using
+        Return lista
+    End Function
+
+    ''' <summary>Marca el comprobante como impreso y suma una impresión. Devuelve el total.</summary>
+    Public Shared Function RegistrarImpresion(codigo As String) As Integer
+        Using conexion As MySqlConnection = Abrir()
+            Using comando As MySqlCommand = conexion.CreateCommand()
+                comando.CommandText =
+                    "UPDATE inscripciones SET estado = IF(estado = 'ANULADA', 'ANULADA', 'IMPRESA'), " &
+                    "       impresiones = impresiones + 1, impreso_en = NOW() " &
+                    " WHERE codigo = @codigo"
+                comando.Parameters.AddWithValue("@codigo", codigo.Trim())
+                If comando.ExecuteNonQuery() = 0 Then Return -1
+            End Using
+
+            Using comando As MySqlCommand = conexion.CreateCommand()
+                comando.CommandText = "SELECT impresiones FROM inscripciones WHERE codigo = @codigo"
+                comando.Parameters.AddWithValue("@codigo", codigo.Trim())
+                Dim total As Object = comando.ExecuteScalar()
+                RegistrarBitacora("IMPRESION", "Comprobante " & codigo.Trim() & " · impresiones=" & Convert.ToString(total, CultureInfo.InvariantCulture))
+                Return Convert.ToInt32(total, CultureInfo.InvariantCulture)
+            End Using
+        End Using
+    End Function
+
+    ' ------------------------------------------------------------------ OPSU
+
+    ''' <summary>Registra la carga del archivo (o reutiliza la existente si el hash coincide).</summary>
+    Public Shared Function RegistrarCargaOpsu(archivo As String, hash As String, totalFilas As Integer) As Integer
+        Using conexion As MySqlConnection = Abrir()
+            Using comando As MySqlCommand = conexion.CreateCommand()
+                comando.CommandText =
+                    "INSERT INTO opsu_cargas (archivo, hash_sha256, total_filas) " &
+                    "VALUES (@archivo, @hash, @total) " &
                     "ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), archivo = VALUES(archivo), " &
                     "  total_filas = VALUES(total_filas), cargado_en = NOW()"
                 comando.Parameters.AddWithValue("@archivo", archivo)
                 comando.Parameters.AddWithValue("@hash", hash)
-                comando.Parameters.AddWithValue("@periodo", If(periodoId > 0, CObj(periodoId), DBNull.Value))
                 comando.Parameters.AddWithValue("@total", totalFilas)
                 comando.ExecuteNonQuery()
                 Dim cargaId As Integer = CInt(comando.LastInsertedId)
@@ -425,9 +580,9 @@ Friend NotInheritable Class Datos
             Using comando As MySqlCommand = conexion.CreateCommand()
                 comando.CommandText =
                     "SELECT COUNT(*) AS total, " &
-                    "       SUM(CASE WHEN modalidad = 'OPSU' THEN 1 ELSE 0 END) AS opsu, " &
-                    "       SUM(CASE WHEN modalidad = 'FLOTANTE' THEN 1 ELSE 0 END) AS flotantes " &
-                    "  FROM inscripciones"
+                    "       SUM(CASE WHEN tipo_ingreso = 'OPSU' THEN 1 ELSE 0 END) AS opsu, " &
+                    "       SUM(CASE WHEN tipo_ingreso = 'FLOTANTE' THEN 1 ELSE 0 END) AS flotantes " &
+                    "  FROM inscripciones WHERE estado <> 'ANULADA'"
                 Using lector As MySqlDataReader = comando.ExecuteReader()
                     If lector.Read() Then
                         Dim total As Integer = If(lector.IsDBNull(0), 0, lector.GetInt32(0))

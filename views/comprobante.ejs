@@ -6,8 +6,8 @@
       <a href="/panel" class="boton boton-fantasma">← Volver al panel</a>
       <div class="acciones-impresion">
         <a class="boton boton-primario" id="boton-imprimir-vb"
-           href="comprobantesvb://imprimir/<%= encodeURIComponent(inscripcion.codigo) %>"
-           title="Abre Visual Basic, consulta los datos directamente en la base de datos e imprime en la impresora predeterminada">
+           href="inscripcionopsu://imprimir/<%= encodeURIComponent(inscripcion.codigo) %>"
+           title="Abre el sistema en Visual Basic, consulta los datos directamente en la base de datos e imprime en la impresora predeterminada">
           Imprimir con Visual Basic
         </a>
         <button type="button" class="boton boton-fantasma" id="boton-imprimir">Imprimir en el navegador</button>
@@ -40,10 +40,9 @@
       <p class="comprobante-intro">
         Se certifica que el (la) ciudadano(a) <strong><%= inscripcion.nombres %> <%= inscripcion.apellidos %></strong>,
         titular de la cédula de identidad <strong><%= inscripcion.cedula %></strong>, quedó inscrito(a) en el
-        <strong><%= inscripcion.carrera %></strong> para el semestre
-        <strong><%= numeroRomano(inscripcion.semestre) %></strong>, en el turno
-        <strong><%= inscripcion.turno %></strong>, en condición de
-        <strong><%= etiquetaCondicion(inscripcion.condicion).toLowerCase() %></strong>.
+        <strong><%= inscripcion.carrera %></strong> para el
+        <strong>Trayecto <%= numeroRomano(inscripcion.trayecto) %></strong>, con tipo de ingreso
+        <strong><%= etiquetaTipoIngreso(inscripcion.tipo_ingreso) %></strong>.
       </p>
 
       <div class="comprobante-columnas">
@@ -64,9 +63,8 @@
           <dl class="comprobante-datos">
             <div><dt>Código</dt><dd><%= inscripcion.codigo %></dd></div>
             <div><dt>Carrera</dt><dd><%= inscripcion.carrera %></dd></div>
-            <div><dt>Semestre</dt><dd><%= numeroRomano(inscripcion.semestre) %></dd></div>
-            <div><dt>Turno</dt><dd><%= inscripcion.turno %></dd></div>
-            <div><dt>Condición</dt><dd><%= etiquetaCondicion(inscripcion.condicion) %></dd></div>
+            <div><dt>Trayecto</dt><dd><%= numeroRomano(inscripcion.trayecto) %></dd></div>
+            <div><dt>Tipo de ingreso</dt><dd><%= etiquetaTipoIngreso(inscripcion.tipo_ingreso) %></dd></div>
             <div><dt>Fecha</dt><dd><%= fechaLarga(inscripcion.fecha_inscripcion) %></dd></div>
             <div><dt>Hora de registro</dt><dd><%= formatearFecha(inscripcion.fecha_inscripcion) %></dd></div>
           </dl>
@@ -80,7 +78,7 @@
             <tr>
               <th scope="col">Código</th>
               <th scope="col">Asignatura</th>
-              <th scope="col">Semestre</th>
+              <th scope="col">Trayecto</th>
             </tr>
           </thead>
           <tbody>
@@ -91,7 +89,7 @@
               <tr>
                 <td><%= asignatura.codigo %></td>
                 <td><%= asignatura.nombre %></td>
-                <td><%= numeroRomano(asignatura.semestre) %></td>
+                <td><%= numeroRomano(asignatura.trayecto) %></td>
               </tr>
             <% }) %>
           </tbody>
@@ -135,9 +133,10 @@
     </article>
 
     <p class="nota-impresion no-imprimir">
-      <strong>Impresión directa:</strong> «Imprimir con Visual Basic» abre la aplicación de escritorio, que consulta
-      la información directamente en la base de datos compartida, imprime en la impresora predeterminada y registra
-      la impresión. La aplicación debe estar instalada en este equipo y se habilita al abrirla por primera vez.
+      <strong>Impresión directa:</strong> «Imprimir con Visual Basic» abre el sistema de escritorio, que consulta
+      la información directamente en la base de datos compartida, muestra la vista previa del comprobante, imprime
+      en la impresora predeterminada y registra la impresión. La aplicación debe estar instalada en este equipo
+      y se habilita al abrirla por primera vez.
       <br>
       Si prefieres no usar Visual Basic, «Imprimir en el navegador» abre el diálogo del navegador; elige tamaño
       «Carta» y desactiva encabezados y pies de página para obtener un documento limpio. La impresión desde

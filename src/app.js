@@ -29,12 +29,15 @@ import {
   verificarCsrf,
 } from './seguridad.js';
 
-export const TURNOS = ['Mañana', 'Tarde', 'Noche'];
-export const CONDICIONES = [
-  { valor: 'REGULAR', etiqueta: 'Alumno regular' },
-  { valor: 'FLOTANTE', etiqueta: 'Población flotante' },
+/**
+ * Modelo unico compartido con la aplicacion de escritorio en Visual Basic:
+ * la inscripcion se organiza por TRAYECTO y por TIPO DE INGRESO. No hay turnos.
+ */
+export const TRAYECTOS = [1, 2, 3, 4, 5];
+export const TIPOS_INGRESO = [
+  { valor: 'OPSU', etiqueta: 'OPSU', descripcion: 'Asignado por el Sistema Nacional de Ingreso' },
+  { valor: 'FLOTANTE', etiqueta: 'Flotante', descripcion: 'Cursa sin pertenecer a la matricula regular del PNF' },
 ];
-export const SEMESTRES = [1, 2, 3, 4, 5];
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V'];
 
 /* -------------------------------------------------------------------------- */
@@ -45,10 +48,10 @@ export function numeroRomano(numero) {
   return ROMANOS[Number(numero) - 1] || String(numero);
 }
 
-/** Devuelve la etiqueta legible de la condición del estudiante. */
-export function etiquetaCondicion(valor) {
-  const encontrada = CONDICIONES.find((condicion) => condicion.valor === valor);
-  return encontrada ? encontrada.etiqueta : 'Alumno regular';
+/** Devuelve la etiqueta legible del tipo de ingreso. */
+export function etiquetaTipoIngreso(valor) {
+  const encontrado = TIPOS_INGRESO.find((tipo) => tipo.valor === valor);
+  return encontrado ? encontrado.etiqueta : 'Flotante';
 }
 
 function interpretarFecha(valor) {
@@ -149,10 +152,9 @@ app.use(async (req, res, next) => {
   res.locals.formatearFecha = formatearFecha;
   res.locals.fechaLarga = fechaLarga;
   res.locals.numeroRomano = numeroRomano;
-  res.locals.etiquetaCondicion = etiquetaCondicion;
-  res.locals.turnos = TURNOS;
-  res.locals.condiciones = CONDICIONES;
-  res.locals.semestres = SEMESTRES;
+  res.locals.etiquetaTipoIngreso = etiquetaTipoIngreso;
+  res.locals.trayectos = TRAYECTOS;
+  res.locals.tiposIngreso = TIPOS_INGRESO;
   res.locals.anio = new Date().getFullYear();
   next();
 });
@@ -350,14 +352,14 @@ app.get('/panel', requiereEstudiante, async (req, res) => {
 
 app.get('/inscribir', requiereEstudiante, async (req, res) => {
   const carrera = await obtenerCarrera(req.query.carrera || 0);
+  const estudiante = res.locals.estudiante;
   res.render('inscribir', {
     titulo: 'Nueva inscripción',
     carreras: await listarCarreras(),
     valores: {
       carrera_id: carrera ? carrera.id : '',
-      semestre: '',
-      turno: '',
-      condicion: 'REGULAR',
+      trayecto: '',
+      tipo_ingreso: estudiante.modalidad === 'OPSU' ? 'OPSU' : 'FLOTANTE',
       observaciones: '',
     },
     errores: {},
@@ -370,28 +372,27 @@ app.post('/inscribir', requiereEstudiante, verificarCsrf, async (req, res) => {
   const carreras = await listarCarreras();
   const valores = {
     carrera_id: texto(req.body.carrera_id),
-    semestre: texto(req.body.semestre),
-    turno: texto(req.body.turno),
-    condicion: texto(req.body.condicion).toUpperCase(),
+    trayecto: texto(req.body.trayecto),
+    tipo_ingreso: texto(req.body.tipo_ingreso).toUpperCase(),
     observaciones: texto(req.body.observaciones).slice(0, 500),
   };
   const errores = {};
 
   const carrera = await obtenerCarrera(valores.carrera_id);
-  const semestre = Number(valores.semestre);
-  const turno = TURNOS.includes(valores.turno) ? valores.turno : null;
-  const condicion = CONDICIONES.some((opcion) => opcion.valor === valores.condicion)
-    ? valores.condicion
+  const trayecto = Number(valores.trayecto);
+  const tipoIngreso = TIPOS_INGRESO.some((tipo) => tipo.valor === valores.tipo_ingreso)
+    ? valores.tipo_ingreso
     : null;
 
   if (!carrera) errores.carrera_id = 'Selecciona una carrera.';
-  if (!Number.isInteger(semestre) || !SEMESTRES.includes(semestre)) {
-    errores.semestre = 'Selecciona un semestre válido.';
+  if (!Number.isInteger(trayecto) || !TRAYECTOS.includes(trayecto)) {
+    errores.trayecto = 'Selecciona un trayecto válido.';
   }
-  if (!turno) errores.turno = 'Selecciona un turno.';
-  if (!condicion) errores.condicion = 'Indica la condición del estudiante.';
+  if (!tipoIngreso) errores.tipo_ingreso = 'Indica el tipo de ingreso (OPSU o flotante).';
 
-  const disponibles = carrera ? await listarAsignaturas(carrera.id, semestre) : [];
+  const disponibles = carrera && TRAYECTOS.includes(trayecto)
+    ? await listarAsignaturas(carrera.id, trayecto)
+    : [];
   const idsDisponibles = new Set(disponibles.map((a) => a.id));
   const seleccionadas = (Array.isArray(req.body.asignaturas)
     ? req.body.asignaturas
@@ -403,7 +404,7 @@ app.post('/inscribir', requiereEstudiante, verificarCsrf, async (req, res) => {
     .filter((id) => idsDisponibles.has(id));
 
   if (disponibles.length > 0 && seleccionadas.length === 0) {
-    errores.asignaturas = 'Selecciona al menos una asignatura del semestre.';
+    errores.asignaturas = 'Selecciona al menos una asignatura del trayecto.';
   }
 
   const renderFormulario = (estado = 422) =>
@@ -422,16 +423,15 @@ app.post('/inscribir', requiereEstudiante, verificarCsrf, async (req, res) => {
     codigo = await crearInscripcion({
       estudianteId: estudiante.id,
       carreraId: carrera.id,
-      semestre,
-      turno,
-      condicion,
+      trayecto,
+      tipoIngreso,
       asignaturaIds: seleccionadas,
       observaciones: valores.observaciones,
     });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
       errores.general =
-        'Ya tienes una inscripción activa para esta carrera y semestre. Revisa tu panel o comunícate con Control de Estudios.';
+        'Ya tienes una inscripción activa para esta carrera y trayecto. Revisa tu panel o comunícate con Control de Estudios.';
       return renderFormulario(409);
     }
     throw error;
@@ -467,11 +467,11 @@ app.get('/comprobante/:codigo', requiereEstudiante, async (req, res, next) => {
 
 app.get('/api/asignaturas', async (req, res) => {
   const carrera = await obtenerCarrera(req.query.carrera_id);
-  const semestre = Number(req.query.semestre);
-  if (!carrera || !SEMESTRES.includes(semestre)) {
-    return res.status(400).json({ error: 'Carrera o semestre no válido.' });
+  const trayecto = Number(req.query.trayecto);
+  if (!carrera || !TRAYECTOS.includes(trayecto)) {
+    return res.status(400).json({ error: 'Carrera o trayecto no válido.' });
   }
-  res.json({ asignaturas: await listarAsignaturas(carrera.id, semestre) });
+  res.json({ asignaturas: await listarAsignaturas(carrera.id, trayecto) });
 });
 
 app.get('/api/carreras', async (req, res) => {

@@ -6,6 +6,7 @@ Imports MySql.Data.MySqlClient
 
 ''' <summary>
 ''' Configuración de la conexión a MySQL.
+''' La base de datos es la MISMA que usa el portal web (portal_pnf).
 ''' Se puede sobrescribir con el archivo %APPDATA%\InscripcionOPSU\config.txt
 ''' o con la variable de entorno OPSU_DB (útil para pruebas).
 ''' </summary>
@@ -15,7 +16,7 @@ Friend NotInheritable Class Configuracion
     Public Property Puerto As Integer = 3306
     Public Property Usuario As String = "root"
     Public Property Clave As String = ""
-    Public Property BaseDatos As String = "inscripcion_opsu"
+    Public Property BaseDatos As String = "portal_pnf"
 
     Private Shared _actual As Configuracion
 

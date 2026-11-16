@@ -30,4 +30,8 @@
     <PackageReference Include="ExcelDataReader.DataSet" Version="3.7.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\public\img\logo-uptll.jpg" Link="Recursos\logo-uptll.jpg" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

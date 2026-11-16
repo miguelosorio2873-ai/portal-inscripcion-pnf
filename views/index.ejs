@@ -10,8 +10,8 @@
       <p class="etiqueta">Programas Nacionales de Formación</p>
       <h1>Tu inscripción universitaria, en línea y sin colas.</h1>
       <p class="hero-bajada">
-        Regístrate, selecciona tu carrera y semestre, y obtén un comprobante de inscripción
-        listo para imprimir desde el portal o desde Control de Estudios.
+        Regístrate, selecciona tu carrera, trayecto y tipo de ingreso, y obtén un comprobante
+        listo para imprimir desde el portal o desde el sistema de Control de Estudios.
       </p>
       <div class="hero-acciones">
         <% if (estudiante) { %>
@@ -24,7 +24,7 @@
       </div>
       <ul class="hero-datos" aria-label="Datos del proceso">
         <li><strong><%= carreras.length %></strong><span>carreras PNF</span></li>
-        <li><strong>5</strong><span>semestres por carrera</span></li>
+        <li><strong>5</strong><span>trayectos por carrera</span></li>
         <li><strong><%= total %></strong><span>inscripciones registradas</span></li>
       </ul>
     </div>
@@ -44,8 +44,8 @@
         </div>
         <div class="demo-tabla">
           <div><span>Carrera</span><strong>PNF Informática</strong></div>
-          <div><span>Semestre</span><strong>III</strong></div>
-          <div><span>Turno</span><strong>Mañana</strong></div>
+          <div><span>Trayecto</span><strong>III</strong></div>
+          <div><span>Ingreso</span><strong>OPSU</strong></div>
         </div>
         <div class="demo-pie">
           <span class="sello">REGISTRADA</span>
@@ -63,7 +63,7 @@
         <p class="etiqueta etiqueta-oscura">Oferta académica</p>
         <h2>Carreras disponibles</h2>
       </div>
-      <p class="titulo-nota">Cuatro Programas Nacionales de Formación con cinco semestres cada uno.</p>
+      <p class="titulo-nota">Cuatro Programas Nacionales de Formación con cinco trayectos cada uno.</p>
     </div>
 
     <div class="rejilla-carreras">
@@ -106,7 +106,7 @@
       <li>
         <span class="paso-numero">2</span>
         <h3>Completa la inscripción</h3>
-        <p>Elige carrera, semestre, turno y las asignaturas que cursarás.</p>
+        <p>Elige carrera, trayecto, tipo de ingreso (OPSU o flotante) y las asignaturas que cursarás.</p>
       </li>
       <li>
         <span class="paso-numero">3</span>
@@ -120,12 +120,12 @@
 
     <div class="panel-destacado">
       <div>
-        <h3>Comprobantes también desde Visual Basic</h3>
+        <h3>El mismo sistema, también en Visual Basic</h3>
         <p>
-          La aplicación de escritorio en Visual Basic (.NET) se conecta a la misma base de datos.
-          Desde el comprobante web, «Imprimir con Visual Basic» envía solo el código: la app
-          consulta los datos, imprime en la impresora predeterminada y registra la impresión.
-          También permite buscar por cédula o código y previsualizar el comprobante.
+          La aplicación de escritorio en Visual Basic (.NET) usa la misma base de datos y el mismo modelo
+          por trayecto: registra estudiantes, valida el archivo OPSU y genera reportes. Desde el comprobante
+          web, «Imprimir con Visual Basic» envía solo el código: el sistema consulta los datos, muestra la
+          vista previa, imprime el comprobante en la impresora predeterminada y registra la impresión.
         </p>
       </div>
       <span class="etiqueta-tecnica">MySQL · VB.NET · Windows Forms</span>

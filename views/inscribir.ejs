@@ -10,7 +10,7 @@
       <div>
         <p class="etiqueta etiqueta-oscura">Formulario de inscripción</p>
         <h1>Nueva inscripción</h1>
-        <p class="texto-suave">Selecciona tu carrera, semestre, turno y las asignaturas a cursar.</p>
+        <p class="texto-suave">Selecciona tu carrera, trayecto, tipo de ingreso y las asignaturas a cursar.</p>
       </div>
     </div>
 
@@ -41,55 +41,44 @@
             </div>
 
             <div class="campo">
-              <label for="semestre">Semestre <span class="requerido">*</span></label>
-              <select id="semestre" name="semestre" class="<%= errores.semestre ? 'invalido' : '' %>" required>
-                <option value="">Selecciona el semestre</option>
-                <% semestres.forEach((semestre) => { %>
-                  <option value="<%= semestre %>"
-                    <%= String(semestre) === String(valores.semestre) ? 'selected' : '' %>>
-                    Semestre <%= numeroRomano(semestre) %>
+              <label for="trayecto">Trayecto <span class="requerido">*</span></label>
+              <select id="trayecto" name="trayecto" class="<%= errores.trayecto ? 'invalido' : '' %>" required>
+                <option value="">Selecciona el trayecto</option>
+                <% trayectos.forEach((trayecto) => { %>
+                  <option value="<%= trayecto %>"
+                    <%= String(trayecto) === String(valores.trayecto) ? 'selected' : '' %>>
+                    Trayecto <%= numeroRomano(trayecto) %>
                   </option>
                 <% }) %>
               </select>
-              <% if (errores.semestre) { %><p class="error-campo"><%= errores.semestre %></p><% } %>
+              <% if (errores.trayecto) { %><p class="error-campo"><%= errores.trayecto %></p><% } %>
             </div>
           </div>
 
           <fieldset class="campo-grupo">
-            <legend>Turno <span class="requerido">*</span></legend>
-            <div class="opciones-turno">
-              <% turnos.forEach((turno) => { %>
+            <legend>Tipo de ingreso <span class="requerido">*</span></legend>
+            <div class="opciones-ingreso">
+              <% tiposIngreso.forEach((tipo) => { %>
                 <label class="opcion-radio">
-                  <input type="radio" name="turno" value="<%= turno %>"
-                    <%= valores.turno === turno ? 'checked' : '' %> required>
-                  <span><%= turno %></span>
+                  <input type="radio" name="tipo_ingreso" value="<%= tipo.valor %>"
+                    <%= valores.tipo_ingreso === tipo.valor ? 'checked' : '' %> required>
+                  <span><%= tipo.etiqueta %></span>
                 </label>
               <% }) %>
             </div>
-            <% if (errores.turno) { %><p class="error-campo"><%= errores.turno %></p><% } %>
-          </fieldset>
-
-          <fieldset class="campo-grupo">
-            <legend>Condición del estudiante <span class="requerido">*</span></legend>
-            <div class="opciones-turno">
-              <% condiciones.forEach((condicion) => { %>
-                <label class="opcion-radio">
-                  <input type="radio" name="condicion" value="<%= condicion.valor %>"
-                    <%= valores.condicion === condicion.valor ? 'checked' : '' %> required>
-                  <span><%= condicion.etiqueta %></span>
-                </label>
-              <% }) %>
-            </div>
-            <p class="ayuda">«Población flotante» aplica a quienes cursan materias sin pertenecer formalmente a la matrícula regular del PNF.</p>
-            <% if (errores.condicion) { %><p class="error-campo"><%= errores.condicion %></p><% } %>
+            <p class="ayuda">
+              <strong>OPSU:</strong> estudiante asignado por el Sistema Nacional de Ingreso.
+              <strong>Flotante:</strong> cursa materias sin pertenecer formalmente a la matrícula regular del PNF.
+            </p>
+            <% if (errores.tipo_ingreso) { %><p class="error-campo"><%= errores.tipo_ingreso %></p><% } %>
           </fieldset>
 
           <div class="campo-grupo">
             <div class="campo-grupo-cabecera">
-              <h3>Asignaturas del semestre</h3>
+              <h3>Asignaturas del trayecto</h3>
               <span class="contador-asignaturas" id="contador-asignaturas">0 seleccionadas</span>
             </div>
-            <p class="ayuda">Las asignaturas se cargan según la carrera y el semestre elegidos.</p>
+            <p class="ayuda">Las asignaturas se cargan según la carrera y el trayecto elegidos.</p>
 
             <div id="lista-asignaturas" class="lista-asignaturas" data-seleccionadas="<%= seleccionadas.join(',') %>">
               <% if (disponibles.length > 0) { %>
@@ -104,7 +93,7 @@
                   </label>
                 <% }) %>
               <% } else { %>
-                <p class="asignaturas-vacio">Selecciona una carrera y un semestre para ver las asignaturas.</p>
+                <p class="asignaturas-vacio">Selecciona una carrera y un trayecto para ver las asignaturas.</p>
               <% } %>
             </div>
             <% if (errores.asignaturas) { %><p class="error-campo"><%= errores.asignaturas %></p><% } %>
@@ -129,9 +118,8 @@
               <div><dt>Estudiante</dt><dd><%= estudiante.nombres %> <%= estudiante.apellidos %></dd></div>
               <div><dt>Cédula</dt><dd><%= estudiante.cedula %></dd></div>
               <div><dt>Carrera</dt><dd id="resumen-carrera">Sin seleccionar</dd></div>
-              <div><dt>Semestre</dt><dd id="resumen-semestre">Sin seleccionar</dd></div>
-              <div><dt>Turno</dt><dd id="resumen-turno">Sin seleccionar</dd></div>
-              <div><dt>Condición</dt><dd id="resumen-condicion">Sin seleccionar</dd></div>
+              <div><dt>Trayecto</dt><dd id="resumen-trayecto">Sin seleccionar</dd></div>
+              <div><dt>Tipo de ingreso</dt><dd id="resumen-ingreso">Sin seleccionar</dd></div>
               <div><dt>Asignaturas</dt><dd id="resumen-asignaturas">0</dd></div>
             </dl>
             <p class="nota-pequena">
@@ -142,7 +130,7 @@
           <div class="tarjeta tarjeta-aviso">
             <h3>Importante</h3>
             <p>
-              Solo puedes tener una inscripción por carrera y semestre. Si necesitas cambios,
+              Solo puedes tener una inscripción por carrera y trayecto. Si necesitas cambios,
               acude a Control de Estudios.
             </p>
           </div>

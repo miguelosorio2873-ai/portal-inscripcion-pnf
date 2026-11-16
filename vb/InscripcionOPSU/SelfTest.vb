@@ -2,6 +2,7 @@ Option Strict On
 Option Explicit On
 
 Imports System.Collections.Generic
+Imports System.Drawing
 Imports System.IO
 Imports System.Linq
 Imports System.Text
@@ -9,9 +10,10 @@ Imports MySql.Data.MySqlClient
 Imports InscripcionOPSU.Modelos
 
 ''' <summary>
-''' Autoprueba sin interfaz: crea una base temporal, registra estudiantes,
-''' carga un CSV de la OPSU, compara, aplica resultados y genera un reporte.
-''' No toca la base real de trabajo.
+''' Autoprueba sin interfaz: crea una base temporal con el esquema unificado,
+''' registra estudiantes e inscripciones por trayecto, genera y renderiza el
+''' comprobante, registra impresiones, carga un CSV de la OPSU, compara,
+''' aplica resultados y construye un reporte. No toca la base real de trabajo.
 ''' </summary>
 Friend NotInheritable Class SelfTest
 
@@ -23,35 +25,81 @@ Friend NotInheritable Class SelfTest
 
     Public Shared Function Ejecutar() As Integer
         Try
-            Environment.SetEnvironmentVariable("OPSU_DB", "inscripcion_opsu_prueba")
+            Environment.SetEnvironmentVariable("OPSU_DB", "portal_pnf_prueba")
             Configuracion.Recargar()
 
-            Escribir("AUTOPRUEBA · Inscripción Universitaria OPSU")
+            Escribir("AUTOPRUEBA · Inscripción Universitaria por Trayecto")
             Escribir("Base de datos temporal: " & Configuracion.Descripcion())
             Escribir("")
 
             EliminarBase()
             Datos.AsegurarEsquema()
-            Verificar(Datos.ListarCarreras().Count >= 4, "Catálogo de carreras creado")
-            Verificar(Datos.ListarTrayectos().Count = 5, "Trayectos I a V creados")
 
-            Dim periodo As Periodo = Datos.PeriodoActivo()
-            Verificar(periodo.Id > 0, "Periodo académico activo: " & periodo.Nombre)
+            Verificar(Datos.ListarCarreras().Count >= 4, "Catálogo de carreras creado")
+            Verificar(Datos.ListarTrayectos().Count = 5, "Trayectos I a V disponibles")
+            Verificar(ContarAsignaturas() = 60, "60 asignaturas (4 carreras × 5 trayectos × 3 materias)")
 
             Dim carreras As List(Of Carrera) = Datos.ListarCarreras()
             Dim informatica As Carrera = carreras.First(Function(c) c.Codigo = "INF")
             Dim veterinaria As Carrera = carreras.First(Function(c) c.Codigo = "VET")
             Dim administracion As Carrera = carreras.First(Function(c) c.Codigo = "ADM")
 
-            ' ---- estudiantes de prueba ----
-            CrearEstudiante("V-11111111", "Ana", "Pérez", TipoIngreso.OPSU, informatica, 1, periodo)
-            CrearEstudiante("V-22222222", "Luis", "Gómez", TipoIngreso.FLOTANTE, veterinaria, 2, periodo)
-            CrearEstudiante("V-33333333", "Carlos", "Ruiz", TipoIngreso.OPSU, informatica, 3, periodo)
-            CrearEstudiante("V-44444444", "María", "Díaz", TipoIngreso.OPSU, informatica, 2, periodo)
-            CrearEstudiante("V-55555555", "OPSU", "Fantasma", TipoIngreso.OPSU, administracion, 5, periodo)
+            ' ---- estudiantes e inscripciones de prueba ----
+            Dim codigoAna As String = CrearInscripcion("V-11111111", "Ana", "Pérez", TipoIngreso.OPSU, informatica, 1)
+            CrearInscripcion("V-22222222", "Luis", "Gómez", TipoIngreso.FLOTANTE, veterinaria, 2)
+            CrearInscripcion("V-33333333", "Carlos", "Ruiz", TipoIngreso.OPSU, informatica, 3)
+            CrearInscripcion("V-44444444", "María", "Díaz", TipoIngreso.OPSU, informatica, 2)
+            CrearInscripcion("V-55555555", "OPSU", "Fantasma", TipoIngreso.OPSU, administracion, 5)
 
             Dim total As Integer = Datos.ListarInscripciones(0, "", 0).Count
-            Verificar(total = 5, "Se registraron 5 inscripciones (sin turnos, solo trayecto)")
+            Verificar(total = 5, "Se registraron 5 inscripciones (solo por trayecto)")
+
+            ' ---- código y duplicados ----
+            Verificar(codigoAna.StartsWith("INS-"), "Código de comprobante generado: " & codigoAna)
+            Verificar(codigoAna = "INS-" & DateTime.Now.Year.ToString() & "-000001", "Formato de código INS-AÑO-NNNNNN")
+
+            Dim codigoRepetido As String = CrearInscripcion("V-11111111", "Ana", "Pérez", TipoIngreso.OPSU, informatica, 1)
+            Verificar(Datos.ListarInscripciones(0, "", 0).Count = 5, "Repetir carrera y trayecto no crea duplicados")
+            Verificar(codigoRepetido = codigoAna, "La inscripción existente conserva su código")
+
+            Dim ana As Inscripcion = Datos.ListarInscripciones(1, "OPSU", informatica.Id).First()
+            Verificar(ana.TotalAsignaturas = 3, "La inscripción incluye las 3 asignaturas del trayecto")
+
+            ' ---- comprobante ----
+            Dim comprobante As InscripcionCompleta = Datos.ObtenerInscripcionCompleta(codigoAna)
+            Verificar(comprobante IsNot Nothing, "Comprobante cargado por código")
+
+            If comprobante IsNot Nothing Then
+                Verificar(comprobante.Trayecto = 1 AndAlso comprobante.TipoIngreso = TipoIngreso.OPSU,
+                          "El comprobante conserva trayecto e ingreso OPSU")
+                Verificar(comprobante.Asignaturas.Count = 3, "El comprobante lista las asignaturas")
+                Verificar(comprobante.NombreCompleto.Contains("Ana"), "El comprobante identifica al estudiante")
+
+                Dim textos As New List(Of String)()
+                Using impresora As New ComprobantePrinter(comprobante)
+                    impresora.RegistrarTextos = True
+                    Using imagen As Bitmap = impresora.Renderizar(850, 1100)
+                        Verificar(imagen.Width = 850 AndAlso imagen.Height = 1100, "Vista previa del comprobante renderizada")
+                    End Using
+                    textos.AddRange(impresora.TextosDibujados)
+                End Using
+
+                Verificar(textos.Any(Function(t) t.Contains(codigoAna)), "El comprobante impreso incluye el código")
+                Verificar(textos.Any(Function(t) t.Contains("Trayecto I")), "El comprobante impreso incluye el trayecto")
+                Verificar(textos.Any(Function(t) t.Contains("OPSU")), "El comprobante impreso incluye el tipo de ingreso")
+                Verificar(Not textos.Any(Function(t) t.ToUpperInvariant().Contains("TURNO")), "El comprobante no menciona turnos")
+                Verificar(Not textos.Any(Function(t) t.ToUpperInvariant().Contains("SEMESTRE")), "El comprobante no menciona semestres")
+            End If
+
+            ' ---- registro de impresión ----
+            Dim primera As Integer = Datos.RegistrarImpresion(codigoAna)
+            Verificar(primera = 1, "La primera impresión se registra (impresiones = 1)")
+
+            Dim impresa As InscripcionCompleta = Datos.ObtenerInscripcionCompleta(codigoAna)
+            Verificar(impresa IsNot Nothing AndAlso impresa.Estado = "IMPRESA", "El estado del comprobante pasa a IMPRESA")
+
+            Dim segunda As Integer = Datos.RegistrarImpresion(codigoAna)
+            Verificar(segunda = 2, "El contador de impresiones se acumula (impresiones = 2)")
 
             ' ---- archivo OPSU ----
             Dim rutaCsv As String = Path.Combine(Path.GetTempPath(), "opsu-prueba-selftest.csv")
@@ -80,7 +128,7 @@ Friend NotInheritable Class SelfTest
 
             ' ---- persistencia de la carga ----
             Dim hash As String = Utilidades.HashArchivo(rutaCsv)
-            Dim cargaId As Integer = Datos.RegistrarCargaOpsu("opsu-prueba-selftest.csv", hash, periodo.Id, registros.Count)
+            Dim cargaId As Integer = Datos.RegistrarCargaOpsu("opsu-prueba-selftest.csv", hash, registros.Count)
             Datos.GuardarRegistrosOpsu(cargaId, registros)
             Datos.GuardarComparaciones(cargaId, comparaciones)
             Verificar(cargaId > 0, "Carga OPSU registrada con id " & cargaId.ToString())
@@ -92,11 +140,12 @@ Friend NotInheritable Class SelfTest
             Dim rosa As Estudiante = Datos.BuscarEstudiante("V-66666666")
             Verificar(rosa IsNot Nothing AndAlso rosa.Modalidad = TipoIngreso.OPSU, "Estudiante faltante importado como OPSU")
 
-            Dim ana As Estudiante = Datos.BuscarEstudiante("V-11111111")
-            Verificar(ana.OpsuEstatus = "COINCIDE", "Ana Pérez quedó marcada como COINCIDE")
+            Dim anaEstudiante As Estudiante = Datos.BuscarEstudiante("V-11111111")
+            Verificar(anaEstudiante.OpsuEstatus = "COINCIDE", "Ana Pérez quedó marcada como COINCIDE")
 
-            ' ---- inscripción adicional de un flotante ----
-            CrearEstudiante("V-77777777", "Pedro", "Flotante", TipoIngreso.FLOTANTE, veterinaria, 4, periodo)
+            ' ---- filtros por trayecto e ingreso ----
+            CrearInscripcion("V-77777777", "Pedro", "Flotante", TipoIngreso.FLOTANTE, veterinaria, 4)
+
             Dim trayectoCuatro As List(Of Inscripcion) = Datos.ListarInscripciones(4, "", 0)
             Verificar(trayectoCuatro.Count = 1, "Filtro por Trayecto IV devuelve 1 inscripción")
 
@@ -132,9 +181,8 @@ Friend NotInheritable Class SelfTest
         Return If(Correcto, 0, 1)
     End Function
 
-    Private Shared Sub CrearEstudiante(cedula As String, nombres As String, apellidos As String,
-                                       modalidad As TipoIngreso, carrera As Carrera, trayecto As Integer,
-                                       periodo As Periodo)
+    Private Shared Function CrearInscripcion(cedula As String, nombres As String, apellidos As String,
+                                             modalidad As TipoIngreso, carrera As Carrera, trayecto As Integer) As String
         Dim estudiante As New Estudiante With {
             .Cedula = cedula,
             .Nombres = nombres,
@@ -142,8 +190,18 @@ Friend NotInheritable Class SelfTest
             .Modalidad = modalidad
         }
         Dim id As Integer = Datos.GuardarEstudiante(estudiante)
-        Datos.GuardarInscripcion(id, carrera.Id, trayecto, periodo.Id, modalidad, "Autoprueba")
-    End Sub
+        Return Datos.GuardarInscripcion(id, carrera.Id, trayecto, modalidad, "Autoprueba")
+    End Function
+
+    Private Shared Function ContarAsignaturas() As Integer
+        Using conexion As New MySqlConnection(Configuracion.Cadena())
+            conexion.Open()
+            Using comando As MySqlCommand = conexion.CreateCommand()
+                comando.CommandText = "SELECT COUNT(*) FROM asignaturas"
+                Return Convert.ToInt32(comando.ExecuteScalar())
+            End Using
+        End Using
+    End Function
 
     Private Shared Function Resultado(comparaciones As List(Of Comparacion), cedula As String) As ResultadoComparacion
         Dim encontrada As Comparacion = comparaciones.FirstOrDefault(

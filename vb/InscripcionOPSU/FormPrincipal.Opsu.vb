@@ -161,9 +161,8 @@ Friend Partial Class FormPrincipal
             Dim estudiantes As List(Of Estudiante) = Datos.ListarEstudiantes()
             Dim comparaciones As List(Of Comparacion) = OpsuComparador.Comparar(registros, estudiantes)
 
-            Dim periodo As Periodo = Datos.PeriodoActivo()
             Dim hash As String = Utilidades.HashArchivo(ruta)
-            _cargaActual = Datos.RegistrarCargaOpsu(Path.GetFileName(ruta), hash, periodo.Id, registros.Count)
+            _cargaActual = Datos.RegistrarCargaOpsu(Path.GetFileName(ruta), hash, registros.Count)
             Datos.GuardarRegistrosOpsu(_cargaActual, registros)
             Datos.GuardarComparaciones(_cargaActual, comparaciones)
             Datos.RegistrarBitacora("OPSU_CARGA",

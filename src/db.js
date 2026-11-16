@@ -4,6 +4,9 @@
  * La base de datos vive en MySQL/MariaDB (XAMPP) y es compartida por el
  * portal web y la aplicacion de escritorio en Visual Basic (.NET).
  *
+ * Modelo unico: la inscripcion se organiza por TRAYECTO y por TIPO DE INGRESO
+ * (OPSU / FLOTANTE). No se usa turno.
+ *
  * Configuracion (variables de entorno):
  *   DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
  */
@@ -64,41 +67,48 @@ const SENTENCIAS_ESQUEMA = [
      codigo       VARCHAR(10)  NOT NULL,
      nombre       VARCHAR(120) NOT NULL,
      descripcion  TEXT NULL,
-     duracion     VARCHAR(50)  NOT NULL DEFAULT '5 semestres',
+     duracion     VARCHAR(50)  NOT NULL DEFAULT '5 trayectos',
      PRIMARY KEY (id),
      UNIQUE KEY uq_carreras_codigo (codigo),
      UNIQUE KEY uq_carreras_nombre (nombre)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   `CREATE TABLE IF NOT EXISTS estudiantes (
-     id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
-     cedula            VARCHAR(20)  NOT NULL,
-     nombres           VARCHAR(120) NOT NULL,
-     apellidos         VARCHAR(120) NOT NULL,
-     email             VARCHAR(190) NOT NULL,
-     telefono          VARCHAR(30)  NULL,
-     fecha_nacimiento  DATE         NULL,
-     sexo              CHAR(1)      NULL,
-     direccion         VARCHAR(255) NULL,
-     password_hash     VARCHAR(255) NOT NULL,
-     creado_en         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     id                 INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     cedula             VARCHAR(20)  NOT NULL,
+     nombres            VARCHAR(120) NOT NULL,
+     apellidos          VARCHAR(120) NOT NULL,
+     email              VARCHAR(190) NULL,
+     telefono           VARCHAR(30)  NULL,
+     fecha_nacimiento   DATE         NULL,
+     sexo               CHAR(1)      NULL,
+     direccion          VARCHAR(255) NULL,
+     password_hash      VARCHAR(255) NULL,
+     modalidad          ENUM('OPSU', 'FLOTANTE') NOT NULL DEFAULT 'FLOTANTE',
+     opsu_estatus       ENUM('NO_VERIFICADO', 'COINCIDE', 'NO_APARECE', 'DATOS_DISTINTOS', 'CARRERA_DISTINTA', 'NO_REGISTRADO')
+                        NOT NULL DEFAULT 'NO_VERIFICADO',
+     opsu_verificado_en DATETIME NULL,
+     creado_en          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (id),
      UNIQUE KEY uq_estudiantes_cedula (cedula),
-     UNIQUE KEY uq_estudiantes_email (email)
+     UNIQUE KEY uq_estudiantes_email (email),
+     KEY idx_estudiantes_modalidad (modalidad)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   `CREATE TABLE IF NOT EXISTS asignaturas (
      id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
      carrera_id  INT UNSIGNED NOT NULL,
-     semestre    TINYINT UNSIGNED NOT NULL,
+     trayecto    TINYINT UNSIGNED NOT NULL,
+     semestre    TINYINT UNSIGNED NULL,
      codigo      VARCHAR(20)  NOT NULL,
      nombre      VARCHAR(160) NOT NULL,
      PRIMARY KEY (id),
      UNIQUE KEY uq_asignaturas_carrera_codigo (carrera_id, codigo),
      KEY idx_asignaturas_carrera (carrera_id, semestre),
+     KEY idx_asignaturas_trayecto (carrera_id, trayecto),
      CONSTRAINT fk_asignaturas_carrera
        FOREIGN KEY (carrera_id) REFERENCES carreras(id) ON DELETE CASCADE,
-     CONSTRAINT chk_asignaturas_semestre CHECK (semestre BETWEEN 1 AND 5)
+     CONSTRAINT chk_asignaturas_trayecto CHECK (trayecto BETWEEN 1 AND 5)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   `CREATE TABLE IF NOT EXISTS inscripciones (
@@ -106,9 +116,11 @@ const SENTENCIAS_ESQUEMA = [
      codigo             VARCHAR(64) NOT NULL,
      estudiante_id      INT UNSIGNED NOT NULL,
      carrera_id         INT UNSIGNED NOT NULL,
-     semestre           TINYINT UNSIGNED NOT NULL,
-     turno              VARCHAR(20) NOT NULL,
-     condicion          ENUM('REGULAR', 'FLOTANTE') NOT NULL DEFAULT 'REGULAR',
+     trayecto           TINYINT UNSIGNED NOT NULL,
+     tipo_ingreso       ENUM('OPSU', 'FLOTANTE') NOT NULL DEFAULT 'FLOTANTE',
+     semestre           TINYINT UNSIGNED NULL,
+     turno              VARCHAR(20) NULL,
+     condicion          ENUM('REGULAR', 'FLOTANTE') NULL,
      fecha_inscripcion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      estado             ENUM('REGISTRADA', 'IMPRESA', 'ANULADA') NOT NULL DEFAULT 'REGISTRADA',
      observaciones      TEXT NULL,
@@ -116,13 +128,15 @@ const SENTENCIAS_ESQUEMA = [
      impresiones        INT UNSIGNED NOT NULL DEFAULT 0,
      PRIMARY KEY (id),
      UNIQUE KEY uq_inscripciones_codigo (codigo),
-     UNIQUE KEY uq_inscripciones_estudiante_carrera_semestre (estudiante_id, carrera_id, semestre),
+     UNIQUE KEY uq_inscripciones_estudiante_carrera_trayecto (estudiante_id, carrera_id, trayecto),
      KEY idx_inscripciones_estudiante (estudiante_id),
+     KEY idx_inscripciones_trayecto (trayecto),
+     KEY idx_inscripciones_tipo_ingreso (tipo_ingreso),
      CONSTRAINT fk_inscripciones_estudiante
        FOREIGN KEY (estudiante_id) REFERENCES estudiantes(id) ON DELETE CASCADE,
      CONSTRAINT fk_inscripciones_carrera
        FOREIGN KEY (carrera_id) REFERENCES carreras(id),
-     CONSTRAINT chk_inscripciones_semestre CHECK (semestre BETWEEN 1 AND 5)
+     CONSTRAINT chk_inscripciones_trayecto CHECK (trayecto BETWEEN 1 AND 5)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   `CREATE TABLE IF NOT EXISTS inscripcion_asignaturas (
@@ -134,6 +148,65 @@ const SENTENCIAS_ESQUEMA = [
      CONSTRAINT fk_inscripcion_asignaturas_asignatura
        FOREIGN KEY (asignatura_id) REFERENCES asignaturas(id)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS opsu_cargas (
+     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     archivo     VARCHAR(255) NOT NULL,
+     hash_sha256 CHAR(64)     NOT NULL,
+     total_filas INT UNSIGNED NOT NULL DEFAULT 0,
+     cargado_en  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     PRIMARY KEY (id),
+     UNIQUE KEY uq_opsu_cargas_hash (hash_sha256)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS opsu_registros (
+     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     carga_id      INT UNSIGNED NOT NULL,
+     fila          INT UNSIGNED NOT NULL,
+     cedula        VARCHAR(20)  NOT NULL,
+     nombres       VARCHAR(160) NULL,
+     apellidos     VARCHAR(160) NULL,
+     sexo          CHAR(1)      NULL,
+     carrera_opsu  VARCHAR(160) NULL,
+     trayecto_opsu TINYINT UNSIGNED NULL,
+     estatus_opsu  VARCHAR(60)  NULL,
+     PRIMARY KEY (id),
+     KEY idx_opsu_registros_carga (carga_id),
+     KEY idx_opsu_registros_cedula (cedula),
+     CONSTRAINT fk_opsu_registros_carga
+       FOREIGN KEY (carga_id) REFERENCES opsu_cargas(id) ON DELETE CASCADE
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS opsu_comparaciones (
+     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     carga_id        INT UNSIGNED NOT NULL,
+     estudiante_id   INT UNSIGNED NULL,
+     cedula          VARCHAR(20)  NOT NULL,
+     nombre_opsu     VARCHAR(200) NULL,
+     nombre_sistema  VARCHAR(200) NULL,
+     carrera_opsu    VARCHAR(160) NULL,
+     carrera_sistema VARCHAR(160) NULL,
+     resultado       ENUM('COINCIDE', 'NO_APARECE_EN_OPSU', 'NO_REGISTRADO_EN_SISTEMA', 'DATOS_DISTINTOS', 'CARRERA_DISTINTA') NOT NULL,
+     diferencias     VARCHAR(400) NULL,
+     fecha           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     PRIMARY KEY (id),
+     KEY idx_opsu_comparaciones_carga (carga_id),
+     KEY idx_opsu_comparaciones_cedula (cedula),
+     CONSTRAINT fk_opsu_comparaciones_carga
+       FOREIGN KEY (carga_id) REFERENCES opsu_cargas(id) ON DELETE CASCADE,
+     CONSTRAINT fk_opsu_comparaciones_estudiante
+       FOREIGN KEY (estudiante_id) REFERENCES estudiantes(id) ON DELETE SET NULL
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS bitacora (
+     id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+     accion  VARCHAR(60)  NOT NULL,
+     detalle VARCHAR(400) NULL,
+     usuario VARCHAR(80)  NOT NULL,
+     fecha   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     PRIMARY KEY (id),
+     KEY idx_bitacora_fecha (fecha)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 async function crearEsquema() {
@@ -142,22 +215,136 @@ async function crearEsquema() {
   }
 }
 
+/* ------------------------------ utilidades DDL ---------------------------- */
+
+async function existeColumna(tabla, columna) {
+  const [filas] = await pool.query(
+    `SELECT 1 FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
+    [DB_NAME, tabla, columna]
+  );
+  return filas.length > 0;
+}
+
+async function existeIndice(tabla, indice) {
+  const [filas] = await pool.query(
+    `SELECT 1 FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ? LIMIT 1`,
+    [DB_NAME, tabla, indice]
+  );
+  return filas.length > 0;
+}
+
+async function columnaNulable(tabla, columna) {
+  const [filas] = await pool.query(
+    `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
+    [DB_NAME, tabla, columna]
+  );
+  return filas[0]?.IS_NULLABLE === 'YES';
+}
+
 /**
- * Ajustes sobre bases de datos ya creadas: agrega columnas nuevas sin perder datos.
+ * Ajustes sobre bases de datos ya creadas: agrega columnas nuevas sin perder
+ * datos y migra los registros antiguos (semestre -> trayecto, turno fuera de uso).
  */
 async function migrarEsquema() {
-  const [columnas] = await pool.query(
-    `SELECT COLUMN_NAME
-       FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'inscripciones' AND COLUMN_NAME = 'condicion'`,
-    [DB_NAME]
-  );
+  /* ---- estudiantes ---- */
+  if (!(await existeColumna('estudiantes', 'modalidad'))) {
+    await pool.query(
+      `ALTER TABLE estudiantes
+         ADD COLUMN modalidad ENUM('OPSU', 'FLOTANTE') NOT NULL DEFAULT 'FLOTANTE' AFTER password_hash`
+    );
+  }
+  if (!(await existeColumna('estudiantes', 'opsu_estatus'))) {
+    await pool.query(
+      `ALTER TABLE estudiantes
+         ADD COLUMN opsu_estatus ENUM('NO_VERIFICADO', 'COINCIDE', 'NO_APARECE', 'DATOS_DISTINTOS', 'CARRERA_DISTINTA', 'NO_REGISTRADO')
+         NOT NULL DEFAULT 'NO_VERIFICADO' AFTER modalidad`
+    );
+  }
+  if (!(await existeColumna('estudiantes', 'opsu_verificado_en'))) {
+    await pool.query('ALTER TABLE estudiantes ADD COLUMN opsu_verificado_en DATETIME NULL AFTER opsu_estatus');
+  }
+  if (!(await existeIndice('estudiantes', 'idx_estudiantes_modalidad'))) {
+    await pool.query('ALTER TABLE estudiantes ADD KEY idx_estudiantes_modalidad (modalidad)');
+  }
+  if (!(await columnaNulable('estudiantes', 'email'))) {
+    await pool.query('ALTER TABLE estudiantes MODIFY email VARCHAR(190) NULL');
+  }
+  if (!(await columnaNulable('estudiantes', 'password_hash'))) {
+    await pool.query('ALTER TABLE estudiantes MODIFY password_hash VARCHAR(255) NULL');
+  }
 
-  if (columnas.length === 0) {
+  /* ---- asignaturas: el nivel academico pasa a llamarse trayecto ---- */
+  if (!(await existeColumna('asignaturas', 'trayecto'))) {
+    await pool.query('ALTER TABLE asignaturas ADD COLUMN trayecto TINYINT UNSIGNED NULL AFTER carrera_id');
+  }
+  await pool.query('UPDATE asignaturas SET trayecto = semestre WHERE trayecto IS NULL AND semestre IS NOT NULL');
+  await pool.query('UPDATE asignaturas SET trayecto = 1 WHERE trayecto IS NULL');
+  if (await columnaNulable('asignaturas', 'trayecto')) {
+    await pool.query('ALTER TABLE asignaturas MODIFY trayecto TINYINT UNSIGNED NOT NULL');
+  }
+  if (!(await existeIndice('asignaturas', 'idx_asignaturas_trayecto'))) {
+    await pool.query('ALTER TABLE asignaturas ADD KEY idx_asignaturas_trayecto (carrera_id, trayecto)');
+  }
+  if (!(await columnaNulable('asignaturas', 'semestre'))) {
+    await pool.query('ALTER TABLE asignaturas MODIFY semestre TINYINT UNSIGNED NULL');
+  }
+
+  /* ---- inscripciones ---- */
+  if (!(await existeColumna('inscripciones', 'trayecto'))) {
+    await pool.query('ALTER TABLE inscripciones ADD COLUMN trayecto TINYINT UNSIGNED NULL AFTER carrera_id');
+  }
+  if (!(await existeColumna('inscripciones', 'tipo_ingreso'))) {
     await pool.query(
       `ALTER TABLE inscripciones
-         ADD COLUMN condicion ENUM('REGULAR', 'FLOTANTE') NOT NULL DEFAULT 'REGULAR' AFTER turno`
+         ADD COLUMN tipo_ingreso ENUM('OPSU', 'FLOTANTE') NULL AFTER trayecto`
     );
+  }
+
+  await pool.query('UPDATE inscripciones SET trayecto = semestre WHERE trayecto IS NULL AND semestre IS NOT NULL');
+  await pool.query('UPDATE inscripciones SET trayecto = 1 WHERE trayecto IS NULL');
+  await pool.query(
+    `UPDATE inscripciones
+        SET tipo_ingreso = IF(condicion = 'FLOTANTE', 'FLOTANTE', 'OPSU')
+      WHERE tipo_ingreso IS NULL`
+  );
+  await pool.query("UPDATE inscripciones SET tipo_ingreso = 'FLOTANTE' WHERE tipo_ingreso IS NULL");
+
+  if (await columnaNulable('inscripciones', 'trayecto')) {
+    await pool.query('ALTER TABLE inscripciones MODIFY trayecto TINYINT UNSIGNED NOT NULL');
+  }
+  if (await columnaNulable('inscripciones', 'tipo_ingreso')) {
+    await pool.query(
+      `ALTER TABLE inscripciones
+         MODIFY tipo_ingreso ENUM('OPSU', 'FLOTANTE') NOT NULL DEFAULT 'FLOTANTE'`
+    );
+  }
+  if (!(await columnaNulable('inscripciones', 'semestre'))) {
+    await pool.query('ALTER TABLE inscripciones MODIFY semestre TINYINT UNSIGNED NULL');
+  }
+  if (!(await columnaNulable('inscripciones', 'turno'))) {
+    await pool.query('ALTER TABLE inscripciones MODIFY turno VARCHAR(20) NULL');
+  }
+  if (!(await columnaNulable('inscripciones', 'condicion'))) {
+    await pool.query("ALTER TABLE inscripciones MODIFY condicion ENUM('REGULAR', 'FLOTANTE') NULL");
+  }
+
+  // La unicidad ahora es por trayecto, no por semestre.
+  if (await existeIndice('inscripciones', 'uq_inscripciones_estudiante_carrera_semestre')) {
+    await pool.query('ALTER TABLE inscripciones DROP INDEX uq_inscripciones_estudiante_carrera_semestre');
+  }
+  if (!(await existeIndice('inscripciones', 'uq_inscripciones_estudiante_carrera_trayecto'))) {
+    await pool.query(
+      'ALTER TABLE inscripciones ADD UNIQUE KEY uq_inscripciones_estudiante_carrera_trayecto (estudiante_id, carrera_id, trayecto)'
+    );
+  }
+  if (!(await existeIndice('inscripciones', 'idx_inscripciones_trayecto'))) {
+    await pool.query('ALTER TABLE inscripciones ADD KEY idx_inscripciones_trayecto (trayecto)');
+  }
+  if (!(await existeIndice('inscripciones', 'idx_inscripciones_tipo_ingreso'))) {
+    await pool.query('ALTER TABLE inscripciones ADD KEY idx_inscripciones_tipo_ingreso (tipo_ingreso)');
   }
 }
 
@@ -238,15 +425,15 @@ async function sembrarDatos() {
     );
     if (Number(conteo[0].total) > 0) continue;
 
-    const semestres = ASIGNATURAS[carrera.codigo];
-    for (let indice = 0; indice < semestres.length; indice += 1) {
-      const semestre = indice + 1;
-      const materias = semestres[indice];
+    const trayectos = ASIGNATURAS[carrera.codigo];
+    for (let indice = 0; indice < trayectos.length; indice += 1) {
+      const trayecto = indice + 1;
+      const materias = trayectos[indice];
       for (let posicion = 0; posicion < materias.length; posicion += 1) {
-        const codigo = `${carrera.codigo}-${semestre}${String(posicion + 1).padStart(2, '0')}`;
+        const codigo = `${carrera.codigo}-${trayecto}${String(posicion + 1).padStart(2, '0')}`;
         await pool.execute(
-          'INSERT IGNORE INTO asignaturas (carrera_id, semestre, codigo, nombre) VALUES (?, ?, ?, ?)',
-          [carreraId, semestre, codigo, materias[posicion]]
+          'INSERT IGNORE INTO asignaturas (carrera_id, trayecto, semestre, codigo, nombre) VALUES (?, ?, ?, ?, ?)',
+          [carreraId, trayecto, trayecto, codigo, materias[posicion]]
         );
       }
     }
@@ -271,10 +458,10 @@ export async function obtenerCarrera(id) {
   return filas[0];
 }
 
-export async function listarAsignaturas(carreraId, semestre) {
+export async function listarAsignaturas(carreraId, trayecto) {
   const [filas] = await pool.execute(
-    'SELECT * FROM asignaturas WHERE carrera_id = ? AND semestre = ? ORDER BY codigo',
-    [Number(carreraId), Number(semestre)]
+    'SELECT * FROM asignaturas WHERE carrera_id = ? AND trayecto = ? ORDER BY codigo',
+    [Number(carreraId), Number(trayecto)]
   );
   return filas;
 }
@@ -302,7 +489,7 @@ export async function crearEstudiante(datos) {
 export async function estudiantePorId(id) {
   const [filas] = await pool.execute(
     `SELECT id, cedula, nombres, apellidos, email, telefono, fecha_nacimiento,
-            sexo, direccion, creado_en
+            sexo, direccion, modalidad, opsu_estatus, creado_en
        FROM estudiantes WHERE id = ?`,
     [Number(id)]
   );
@@ -319,22 +506,21 @@ export async function estudiantePorEmail(email) {
   return filas[0];
 }
 
-export async function crearInscripcion({ estudianteId, carreraId, semestre, turno, condicion, asignaturaIds, observaciones }) {
+export async function crearInscripcion({ estudianteId, carreraId, trayecto, tipoIngreso, asignaturaIds, observaciones }) {
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
 
     const temporal = `TMP-${randomUUID()}`;
     const [resultado] = await conexion.execute(
-      `INSERT INTO inscripciones (codigo, estudiante_id, carrera_id, semestre, turno, condicion, observaciones)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO inscripciones (codigo, estudiante_id, carrera_id, trayecto, tipo_ingreso, observaciones)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         temporal,
         Number(estudianteId),
         Number(carreraId),
-        Number(semestre),
-        turno,
-        condicion === 'FLOTANTE' ? 'FLOTANTE' : 'REGULAR',
+        Number(trayecto),
+        tipoIngreso === 'OPSU' ? 'OPSU' : 'FLOTANTE',
         observaciones || null,
       ]
     );
@@ -377,7 +563,7 @@ export async function obtenerInscripcion(codigo) {
   const [filas] = await pool.execute(
     `SELECT i.*, c.nombre AS carrera, c.codigo AS carrera_codigo,
             e.cedula, e.nombres, e.apellidos, e.email, e.telefono,
-            e.fecha_nacimiento, e.sexo, e.direccion
+            e.fecha_nacimiento, e.sexo, e.direccion, e.modalidad
        FROM inscripciones i
        JOIN carreras c ON c.id = i.carrera_id
        JOIN estudiantes e ON e.id = i.estudiante_id
@@ -389,7 +575,7 @@ export async function obtenerInscripcion(codigo) {
 
 export async function asignaturasDeInscripcion(inscripcionId) {
   const [filas] = await pool.execute(
-    `SELECT a.codigo, a.nombre, a.semestre
+    `SELECT a.codigo, a.nombre, a.trayecto
        FROM inscripcion_asignaturas ia
        JOIN asignaturas a ON a.id = ia.asignatura_id
       WHERE ia.inscripcion_id = ?

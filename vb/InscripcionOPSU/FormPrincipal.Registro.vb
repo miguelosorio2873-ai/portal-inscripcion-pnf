@@ -23,6 +23,7 @@ Friend Partial Class FormPrincipal
     Private ReadOnly _btnGuardar As New Button()
     Private ReadOnly _btnLimpiar As New Button()
     Private ReadOnly _btnBuscar As New Button()
+    Private ReadOnly _btnComprobante As New Button()
 
     Private ReadOnly _grid As New DataGridView()
     Private ReadOnly _cboFiltroTrayecto As New ComboBox()
@@ -114,9 +115,12 @@ Friend Partial Class FormPrincipal
         ConfigurarBoton(_btnGuardar, "Guardar e inscribir", 150, Color.FromArgb(21, 101, 192), Color.White)
         ConfigurarBoton(_btnBuscar, "Buscar cédula", 120, Color.FromArgb(236, 239, 245), Color.Black)
         ConfigurarBoton(_btnLimpiar, "Limpiar", 90, Color.FromArgb(236, 239, 245), Color.Black)
+        ConfigurarBoton(_btnComprobante, "Comprobante", 120, Color.FromArgb(46, 125, 50), Color.White)
+        _btnComprobante.Enabled = False
         botones.Controls.Add(_btnGuardar)
         botones.Controls.Add(_btnBuscar)
         botones.Controls.Add(_btnLimpiar)
+        botones.Controls.Add(_btnComprobante)
 
         tabla.Controls.Add(botones, 0, fila)
         tabla.SetColumnSpan(botones, 2)
@@ -125,6 +129,7 @@ Friend Partial Class FormPrincipal
         AddHandler _btnGuardar.Click, AddressOf Guardar_Click
         AddHandler _btnBuscar.Click, AddressOf Buscar_Click
         AddHandler _btnLimpiar.Click, AddressOf Limpiar_Click
+        AddHandler _btnComprobante.Click, AddressOf VerComprobante_Click
         AddHandler _txtCedula.KeyDown, AddressOf Cedula_KeyDown
 
         ' ---------------- listado ----------------
@@ -161,6 +166,8 @@ Friend Partial Class FormPrincipal
         division.Panel2.Controls.Add(_grid)
         _grid.BringToFront()
 
+        AddHandler _grid.SelectionChanged, AddressOf Grid_SelectionChanged
+        AddHandler _grid.CellDoubleClick, AddressOf Grid_CellDoubleClick
         AddHandler _cboFiltroTrayecto.SelectedIndexChanged, AddressOf Filtro_Changed
         AddHandler _cboFiltroModalidad.SelectedIndexChanged, AddressOf Filtro_Changed
         AddHandler _cboFiltroCarrera.SelectedIndexChanged, AddressOf Filtro_Changed
@@ -237,6 +244,7 @@ Friend Partial Class FormPrincipal
         AgregarColumna("ModalidadTexto", "Ingreso", 70)
         AgregarColumna("Estatus", "Estatus", 70)
         AgregarColumna("FechaTexto", "Fecha", 70)
+        AgregarColumna("Codigo", "Comprobante", 110)
     End Sub
 
     Private Sub AgregarColumna(campo As String, titulo As String, peso As Integer)
@@ -385,13 +393,6 @@ Friend Partial Class FormPrincipal
                 Return
             End If
 
-            Dim periodo As Periodo = Datos.PeriodoActivo()
-            If periodo.Id = 0 Then
-                MessageBox.Show("No hay un periodo académico configurado.", "Inscripción",
-                                MessageBoxButtons.OK, MessageBoxIcon.Warning)
-                Return
-            End If
-
             Dim modalidad As TipoIngreso = If(opcionModalidad.Valor = "OPSU", TipoIngreso.OPSU, TipoIngreso.FLOTANTE)
             Dim sexo As String = ""
             Dim opcionSexo As Opcion = TryCast(_cboSexo.SelectedItem, Opcion)
@@ -409,17 +410,27 @@ Friend Partial Class FormPrincipal
             If _dtpNacimiento.Checked Then estudiante.FechaNacimiento = _dtpNacimiento.Value.Date
 
             Dim estudianteId As Integer = Datos.GuardarEstudiante(estudiante)
-            Datos.GuardarInscripcion(estudianteId, carrera.Id, Integer.Parse(opcionTrayecto.Valor), periodo.Id,
-                                     modalidad, _txtObservaciones.Text)
+            Dim trayecto As Integer = Integer.Parse(opcionTrayecto.Valor)
+            Dim codigo As String = Datos.GuardarInscripcion(estudianteId, carrera.Id, trayecto,
+                                                            modalidad, _txtObservaciones.Text)
+
             Datos.RegistrarBitacora("INSCRIPCION",
-                estudiante.Cedula & " · " & carrera.Nombre & " · " & opcionTrayecto.Texto & " · " & modalidad.ToString())
+                estudiante.Cedula & " · " & carrera.Nombre & " · " & opcionTrayecto.Texto & " · " &
+                modalidad.ToString() & " · " & codigo)
 
             RefrescarListado()
             ActualizarResumen()
             Limpiar_Click(sender, e)
-            MessageBox.Show("Inscripción registrada correctamente." & Environment.NewLine &
-                            estudiante.NombreCompleto & " · " & opcionTrayecto.Texto,
-                            "Inscripción", MessageBoxButtons.OK, MessageBoxIcon.Information)
+
+            Dim respuesta As DialogResult = MessageBox.Show(
+                "Inscripción registrada correctamente." & Environment.NewLine & Environment.NewLine &
+                estudiante.NombreCompleto & " · " & opcionTrayecto.Texto & " · " &
+                If(modalidad = TipoIngreso.OPSU, "OPSU", "Flotante") & Environment.NewLine &
+                "Comprobante: " & codigo & Environment.NewLine & Environment.NewLine &
+                "¿Desea ver e imprimir el comprobante ahora?",
+                "Inscripción registrada", MessageBoxButtons.YesNo, MessageBoxIcon.Information)
+
+            If respuesta = DialogResult.Yes Then Comprobante.Mostrar(codigo)
         Catch ex As Exception
             MessageBox.Show("No se pudo guardar la inscripción." & Environment.NewLine & ex.Message,
                             "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -451,6 +462,34 @@ Friend Partial Class FormPrincipal
 
         _grid.DataSource = Datos.ListarInscripciones(trayecto, modalidad, carrera)
         _lblTotal.Text = "Registros: " & _grid.RowCount.ToString()
+        _btnComprobante.Enabled = _grid.RowCount > 0
+    End Sub
+
+    ''' <summary>Inscripción seleccionada en el listado (Nothing si no hay fila).</summary>
+    Private Function InscripcionSeleccionada() As Inscripcion
+        If _grid.CurrentRow Is Nothing Then Return Nothing
+        Return TryCast(_grid.CurrentRow.DataBoundItem, Inscripcion)
+    End Function
+
+    Private Sub Grid_SelectionChanged(sender As Object, e As EventArgs)
+        _btnComprobante.Enabled = InscripcionSeleccionada() IsNot Nothing
+    End Sub
+
+    Private Sub Grid_CellDoubleClick(sender As Object, e As DataGridViewCellEventArgs)
+        If e.RowIndex < 0 Then Return
+        VerComprobante_Click(sender, EventArgs.Empty)
+    End Sub
+
+    Private Sub VerComprobante_Click(sender As Object, e As EventArgs)
+        Dim inscripcion As Inscripcion = InscripcionSeleccionada()
+        If inscripcion Is Nothing Then
+            MessageBox.Show("Seleccione una inscripción del listado para ver su comprobante.",
+                            "Comprobante", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            Return
+        End If
+
+        Comprobante.Mostrar(inscripcion.Codigo)
+        RefrescarListado()
     End Sub
 
     Private Shared Sub SeleccionarOpcion(combo As ComboBox, valor As String)

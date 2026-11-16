@@ -1,6 +1,9 @@
 Option Strict On
 Option Explicit On
 
+Imports System.Collections.Generic
+Imports System.Globalization
+
 ''' <summary>
 ''' Modelos de datos del sistema de inscripción universitaria.
 ''' No existe el concepto de "turno": toda la organización es por TRAYECTO.
@@ -50,17 +53,6 @@ Namespace Modelos
         End Function
     End Class
 
-    Public Class Periodo
-        Public Property Id As Integer
-        Public Property Codigo As String = ""
-        Public Property Nombre As String = ""
-        Public Property Activo As Boolean
-
-        Public Overrides Function ToString() As String
-            Return Nombre
-        End Function
-    End Class
-
     Public Class Estudiante
         Public Property Id As Integer
         Public Property Cedula As String = ""
@@ -104,17 +96,20 @@ Namespace Modelos
 
     Public Class Inscripcion
         Public Property Id As Integer
+        Public Property Codigo As String = ""
         Public Property EstudianteId As Integer
         Public Property Cedula As String = ""
         Public Property Estudiante As String = ""
         Public Property CarreraId As Integer
         Public Property Carrera As String = ""
         Public Property Trayecto As Integer
-        Public Property Periodo As String = ""
         Public Property Modalidad As TipoIngreso
-        Public Property Estatus As String = "INSCRITA"
+        Public Property Estatus As String = "REGISTRADA"
         Public Property Fecha As Date
         Public Property Observaciones As String = ""
+        Public Property Impresiones As Integer
+        Public Property ImpresoEn As Date?
+        Public Property TotalAsignaturas As Integer
 
         Public ReadOnly Property TrayectoTexto As String
             Get
@@ -131,6 +126,67 @@ Namespace Modelos
         Public ReadOnly Property FechaTexto As String
             Get
                 Return If(Fecha = Date.MinValue, "", Fecha.ToString("dd/MM/yyyy"))
+            End Get
+        End Property
+    End Class
+
+    ''' <summary>Asignatura concreta asociada a una inscripción.</summary>
+    Public Class AsignaturaInscrita
+        Public Property Codigo As String = ""
+        Public Property Nombre As String = ""
+        Public Property Trayecto As Integer
+    End Class
+
+    ''' <summary>Datos completos para imprimir el comprobante de inscripción.</summary>
+    Public Class InscripcionCompleta
+        Public Property InscripcionId As Integer
+        Public Property Codigo As String = ""
+        Public Property Cedula As String = ""
+        Public Property Nombres As String = ""
+        Public Property Apellidos As String = ""
+        Public Property Email As String = ""
+        Public Property Telefono As String = ""
+        Public Property FechaNacimiento As Date?
+        Public Property Direccion As String = ""
+        Public Property Carrera As String = ""
+        Public Property Trayecto As Integer
+        Public Property TipoIngreso As TipoIngreso
+        Public Property FechaInscripcion As Date
+        Public Property Estado As String = "REGISTRADA"
+        Public Property Observaciones As String = ""
+        Public Property Impresiones As Integer
+        Public Property ImpresoEn As Date?
+        Public Property Asignaturas As New List(Of AsignaturaInscrita)()
+
+        Public ReadOnly Property NombreCompleto As String
+            Get
+                Return (Nombres & " " & Apellidos).Trim()
+            End Get
+        End Property
+
+        Public ReadOnly Property TrayectoTexto As String
+            Get
+                Return Utilidades.TrayectoTexto(Trayecto)
+            End Get
+        End Property
+
+        Public ReadOnly Property TipoIngresoTexto As String
+            Get
+                Return If(TipoIngreso = TipoIngreso.OPSU, "OPSU", "Flotante")
+            End Get
+        End Property
+
+        Public ReadOnly Property FechaLargaTexto As String
+            Get
+                If FechaInscripcion = Date.MinValue Then Return ""
+                Return FechaInscripcion.ToString("dd 'de' MMMM 'de' yyyy", New CultureInfo("es-VE"))
+            End Get
+        End Property
+
+        Public ReadOnly Property FechaTexto As String
+            Get
+                If FechaInscripcion = Date.MinValue Then Return ""
+                Return FechaInscripcion.ToString("dd/MM/yyyy HH:mm")
             End Get
         End Property
     End Class

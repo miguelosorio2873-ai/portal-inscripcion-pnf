@@ -2,11 +2,12 @@ Option Strict On
 Option Explicit On
 
 Imports System.Collections.Generic
-Imports System.Globalization
 
 ''' <summary>
-''' Definición del esquema MySQL. Se ejecuta al iniciar la aplicación y es
-''' idempotente: nunca borra datos existentes.
+''' Esquema MySQL unificado con el portal web (base portal_pnf).
+''' La inscripción se organiza por TRAYECTO y TIPO DE INGRESO; no hay turnos
+''' ni periodos académicos. Se ejecuta al iniciar y es idempotente: nunca
+''' borra datos existentes.
 ''' </summary>
 Friend NotInheritable Class Esquema
 
@@ -21,8 +22,9 @@ Friend NotInheritable Class Esquema
     End Function
 
     Public Shared ReadOnly Creaciones As String()
+    Public Shared ReadOnly Ajustes As String()
     Public Shared ReadOnly Carreras As String()
-    Public Shared ReadOnly Trayectos As String()
+    Public Shared ReadOnly Asignaturas As String()
 
     Shared Sub New()
         Dim tablas As New List(Of String)()
@@ -31,73 +33,82 @@ Friend NotInheritable Class Esquema
             "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
             "codigo VARCHAR(10) NOT NULL",
             "nombre VARCHAR(120) NOT NULL",
-            "activa TINYINT(1) NOT NULL DEFAULT 1",
+            "descripcion TEXT NULL",
+            "duracion VARCHAR(50) NOT NULL DEFAULT '5 trayectos'",
             "PRIMARY KEY (id)",
             "UNIQUE KEY uq_carreras_codigo (codigo)",
             "UNIQUE KEY uq_carreras_nombre (nombre)"))
-
-        tablas.Add(Tabla("trayectos",
-            "numero TINYINT UNSIGNED NOT NULL",
-            "nombre VARCHAR(40) NOT NULL",
-            "PRIMARY KEY (numero)"))
-
-        tablas.Add(Tabla("periodos",
-            "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
-            "codigo VARCHAR(20) NOT NULL",
-            "nombre VARCHAR(60) NOT NULL",
-            "inicio DATE NULL",
-            "fin DATE NULL",
-            "activo TINYINT(1) NOT NULL DEFAULT 0",
-            "PRIMARY KEY (id)",
-            "UNIQUE KEY uq_periodos_codigo (codigo)"))
 
         tablas.Add(Tabla("estudiantes",
             "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
             "cedula VARCHAR(20) NOT NULL",
             "nombres VARCHAR(120) NOT NULL",
             "apellidos VARCHAR(120) NOT NULL",
-            "sexo CHAR(1) NULL",
-            "fecha_nacimiento DATE NULL",
             "email VARCHAR(190) NULL",
             "telefono VARCHAR(30) NULL",
+            "fecha_nacimiento DATE NULL",
+            "sexo CHAR(1) NULL",
             "direccion VARCHAR(255) NULL",
+            "password_hash VARCHAR(255) NULL",
             "modalidad ENUM('OPSU','FLOTANTE') NOT NULL DEFAULT 'FLOTANTE'",
             "opsu_estatus ENUM('NO_VERIFICADO','COINCIDE','NO_APARECE','DATOS_DISTINTOS','CARRERA_DISTINTA','NO_REGISTRADO') NOT NULL DEFAULT 'NO_VERIFICADO'",
             "opsu_verificado_en DATETIME NULL",
             "creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-            "actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
             "PRIMARY KEY (id)",
             "UNIQUE KEY uq_estudiantes_cedula (cedula)",
+            "UNIQUE KEY uq_estudiantes_email (email)",
             "KEY idx_estudiantes_modalidad (modalidad)"))
+
+        tablas.Add(Tabla("asignaturas",
+            "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
+            "carrera_id INT UNSIGNED NOT NULL",
+            "trayecto TINYINT UNSIGNED NOT NULL",
+            "semestre TINYINT UNSIGNED NULL",
+            "codigo VARCHAR(20) NOT NULL",
+            "nombre VARCHAR(160) NOT NULL",
+            "PRIMARY KEY (id)",
+            "UNIQUE KEY uq_asignaturas_carrera_codigo (carrera_id, codigo)",
+            "KEY idx_asignaturas_trayecto (carrera_id, trayecto)",
+            "CONSTRAINT fk_asignaturas_carrera FOREIGN KEY (carrera_id) REFERENCES carreras (id) ON DELETE CASCADE"))
 
         tablas.Add(Tabla("inscripciones",
             "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
+            "codigo VARCHAR(64) NOT NULL",
             "estudiante_id INT UNSIGNED NOT NULL",
             "carrera_id INT UNSIGNED NOT NULL",
             "trayecto TINYINT UNSIGNED NOT NULL",
-            "periodo_id INT UNSIGNED NOT NULL",
-            "modalidad ENUM('OPSU','FLOTANTE') NOT NULL",
-            "estatus ENUM('PREINSCRITA','INSCRITA','ANULADA') NOT NULL DEFAULT 'INSCRITA'",
+            "tipo_ingreso ENUM('OPSU','FLOTANTE') NOT NULL DEFAULT 'FLOTANTE'",
+            "semestre TINYINT UNSIGNED NULL",
+            "turno VARCHAR(20) NULL",
+            "condicion ENUM('REGULAR','FLOTANTE') NULL",
             "fecha_inscripcion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-            "observaciones VARCHAR(255) NULL",
+            "estado ENUM('REGISTRADA','IMPRESA','ANULADA') NOT NULL DEFAULT 'REGISTRADA'",
+            "observaciones TEXT NULL",
+            "impreso_en DATETIME NULL",
+            "impresiones INT UNSIGNED NOT NULL DEFAULT 0",
             "PRIMARY KEY (id)",
-            "UNIQUE KEY uq_inscripcion (estudiante_id, periodo_id, carrera_id, trayecto)",
+            "UNIQUE KEY uq_inscripciones_codigo (codigo)",
+            "UNIQUE KEY uq_inscripciones_estudiante_carrera_trayecto (estudiante_id, carrera_id, trayecto)",
             "KEY idx_inscripciones_trayecto (trayecto)",
-            "KEY idx_inscripciones_modalidad (modalidad)",
+            "KEY idx_inscripciones_tipo_ingreso (tipo_ingreso)",
             "CONSTRAINT fk_inscripciones_estudiante FOREIGN KEY (estudiante_id) REFERENCES estudiantes (id) ON DELETE CASCADE",
-            "CONSTRAINT fk_inscripciones_carrera FOREIGN KEY (carrera_id) REFERENCES carreras (id)",
-            "CONSTRAINT fk_inscripciones_periodo FOREIGN KEY (periodo_id) REFERENCES periodos (id)"))
+            "CONSTRAINT fk_inscripciones_carrera FOREIGN KEY (carrera_id) REFERENCES carreras (id)"))
+
+        tablas.Add(Tabla("inscripcion_asignaturas",
+            "inscripcion_id INT UNSIGNED NOT NULL",
+            "asignatura_id INT UNSIGNED NOT NULL",
+            "PRIMARY KEY (inscripcion_id, asignatura_id)",
+            "CONSTRAINT fk_inscripcion_asignaturas_inscripcion FOREIGN KEY (inscripcion_id) REFERENCES inscripciones (id) ON DELETE CASCADE",
+            "CONSTRAINT fk_inscripcion_asignaturas_asignatura FOREIGN KEY (asignatura_id) REFERENCES asignaturas (id)"))
 
         tablas.Add(Tabla("opsu_cargas",
             "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
             "archivo VARCHAR(255) NOT NULL",
             "hash_sha256 CHAR(64) NOT NULL",
-            "periodo_id INT UNSIGNED NULL",
             "total_filas INT UNSIGNED NOT NULL DEFAULT 0",
             "cargado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "PRIMARY KEY (id)",
-            "UNIQUE KEY uq_opsu_cargas_hash (hash_sha256)",
-            "CONSTRAINT fk_opsu_cargas_periodo FOREIGN KEY (periodo_id) REFERENCES periodos (id)"))
+            "UNIQUE KEY uq_opsu_cargas_hash (hash_sha256)"))
 
         tablas.Add(Tabla("opsu_registros",
             "id INT UNSIGNED NOT NULL AUTO_INCREMENT",
@@ -144,6 +155,35 @@ Friend NotInheritable Class Esquema
 
         Creaciones = tablas.ToArray()
 
+        ' Ajustes para bases creadas por versiones anteriores. Se ejecutan uno a
+        ' uno; los errores de "columna/índice ya existe" se ignoran.
+        Ajustes = New String() {
+            "ALTER TABLE estudiantes ADD COLUMN modalidad ENUM('OPSU','FLOTANTE') NOT NULL DEFAULT 'FLOTANTE'",
+            "ALTER TABLE estudiantes ADD COLUMN opsu_estatus ENUM('NO_VERIFICADO','COINCIDE','NO_APARECE','DATOS_DISTINTOS','CARRERA_DISTINTA','NO_REGISTRADO') NOT NULL DEFAULT 'NO_VERIFICADO'",
+            "ALTER TABLE estudiantes ADD COLUMN opsu_verificado_en DATETIME NULL",
+            "ALTER TABLE estudiantes MODIFY email VARCHAR(190) NULL",
+            "ALTER TABLE estudiantes MODIFY password_hash VARCHAR(255) NULL",
+            "ALTER TABLE asignaturas ADD COLUMN trayecto TINYINT UNSIGNED NULL",
+            "UPDATE asignaturas SET trayecto = semestre WHERE trayecto IS NULL AND semestre IS NOT NULL",
+            "UPDATE asignaturas SET trayecto = 1 WHERE trayecto IS NULL",
+            "ALTER TABLE asignaturas MODIFY trayecto TINYINT UNSIGNED NOT NULL",
+            "ALTER TABLE asignaturas MODIFY semestre TINYINT UNSIGNED NULL",
+            "ALTER TABLE inscripciones ADD COLUMN trayecto TINYINT UNSIGNED NULL",
+            "ALTER TABLE inscripciones ADD COLUMN tipo_ingreso ENUM('OPSU','FLOTANTE') NULL",
+            "UPDATE inscripciones SET trayecto = semestre WHERE trayecto IS NULL AND semestre IS NOT NULL",
+            "UPDATE inscripciones SET trayecto = 1 WHERE trayecto IS NULL",
+            "UPDATE inscripciones SET tipo_ingreso = IF(condicion = 'FLOTANTE', 'FLOTANTE', 'OPSU') WHERE tipo_ingreso IS NULL",
+            "ALTER TABLE inscripciones MODIFY trayecto TINYINT UNSIGNED NOT NULL",
+            "ALTER TABLE inscripciones MODIFY tipo_ingreso ENUM('OPSU','FLOTANTE') NOT NULL DEFAULT 'FLOTANTE'",
+            "ALTER TABLE inscripciones MODIFY semestre TINYINT UNSIGNED NULL",
+            "ALTER TABLE inscripciones MODIFY turno VARCHAR(20) NULL",
+            "ALTER TABLE inscripciones MODIFY condicion ENUM('REGULAR','FLOTANTE') NULL",
+            "ALTER TABLE inscripciones DROP INDEX uq_inscripciones_estudiante_carrera_semestre",
+            "ALTER TABLE inscripciones ADD UNIQUE KEY uq_inscripciones_estudiante_carrera_trayecto (estudiante_id, carrera_id, trayecto)",
+            "ALTER TABLE inscripciones ADD KEY idx_inscripciones_trayecto (trayecto)",
+            "ALTER TABLE inscripciones ADD KEY idx_inscripciones_tipo_ingreso (tipo_ingreso)"
+        }
+
         Carreras = New String() {
             "INSERT IGNORE INTO carreras (codigo, nombre) VALUES ('INF', 'PNF Informática')",
             "INSERT IGNORE INTO carreras (codigo, nombre) VALUES ('VET', 'PNF Veterinaria')",
@@ -151,21 +191,53 @@ Friend NotInheritable Class Esquema
             "INSERT IGNORE INTO carreras (codigo, nombre) VALUES ('AGR', 'PNF Agroalimentaria')"
         }
 
-        Trayectos = New String() {
-            "INSERT IGNORE INTO trayectos (numero, nombre) VALUES (1, 'Trayecto I')",
-            "INSERT IGNORE INTO trayectos (numero, nombre) VALUES (2, 'Trayecto II')",
-            "INSERT IGNORE INTO trayectos (numero, nombre) VALUES (3, 'Trayecto III')",
-            "INSERT IGNORE INTO trayectos (numero, nombre) VALUES (4, 'Trayecto IV')",
-            "INSERT IGNORE INTO trayectos (numero, nombre) VALUES (5, 'Trayecto V')"
-        }
+        ' Tres asignaturas por carrera y trayecto, con el mismo código que el portal.
+        Asignaturas = ConstruirAsignaturas()
     End Sub
 
-    ''' <summary>Periodo académico del año en curso, activo por defecto.</summary>
-    Public Shared Function PeriodoInicial() As String
-        Dim anio As Integer = DateTime.Now.Year
-        Dim codigo As String = anio.ToString(CultureInfo.InvariantCulture) & "-1"
-        Dim nombre As String = "Periodo académico " & anio.ToString(CultureInfo.InvariantCulture) & "-1"
-        Return "INSERT IGNORE INTO periodos (codigo, nombre, activo) VALUES ('" & codigo & "', '" & nombre & "', 1)"
+    ''' <summary>Matriz de asignaturas por carrera (5 trayectos × 3 materias).</summary>
+    Private Shared Function ConstruirAsignaturas() As String()
+        Dim materias As New Dictionary(Of String, String()()) From {
+            {"INF", New String()() {
+                New String() {"Matemática I", "Introducción a la Informática", "Lenguaje y Comunicación"},
+                New String() {"Matemática II", "Algoritmos y Programación", "Arquitectura del Computador"},
+                New String() {"Bases de Datos I", "Programación Orientada a Objetos", "Redes de Computadoras"},
+                New String() {"Bases de Datos II", "Ingeniería de Software", "Sistemas Operativos"},
+                New String() {"Desarrollo Web", "Seguridad Informática", "Proyecto Socio-Tecnológico"}}},
+            {"VET", New String()() {
+                New String() {"Anatomía Animal I", "Biología General", "Química General"},
+                New String() {"Fisiología Animal", "Bioquímica", "Anatomía Animal II"},
+                New String() {"Microbiología Veterinaria", "Nutrición Animal", "Semiología"},
+                New String() {"Farmacología Veterinaria", "Patología Veterinaria", "Cirugía Básica"},
+                New String() {"Salud Pública Veterinaria", "Producción Animal", "Proyecto Socio-Comunitario"}}},
+            {"ADM", New String()() {
+                New String() {"Contabilidad I", "Fundamentos de Administración", "Matemática Financiera"},
+                New String() {"Contabilidad II", "Microeconomía", "Estadística I"},
+                New String() {"Gerencia de Empresas", "Macroeconomía", "Derecho Mercantil"},
+                New String() {"Finanzas Corporativas", "Mercadeo", "Gestión del Talento Humano"},
+                New String() {"Planificación Estratégica", "Formulación de Proyectos", "Presupuesto Empresarial"}}},
+            {"AGR", New String()() {
+                New String() {"Botánica General", "Química Agrícola", "Introducción a la Agroalimentaria"},
+                New String() {"Suelos y Fertilizantes", "Fisiología Vegetal", "Maquinaria Agrícola"},
+                New String() {"Producción Vegetal", "Zootecnia General", "Inocuidad Alimentaria"},
+                New String() {"Transformación Agroindustrial", "Riego y Drenaje", "Control de Plagas"},
+                New String() {"Gestión Agroempresarial", "Tecnología de Alimentos", "Proyecto Socio-Productivo"}}}
+        }
+
+        Dim sentencias As New List(Of String)()
+        For Each carrera As KeyValuePair(Of String, String()()) In materias
+            For trayecto As Integer = 1 To carrera.Value.Length
+                Dim lista As String() = carrera.Value(trayecto - 1)
+                For posicion As Integer = 0 To lista.Length - 1
+                    Dim codigo As String = carrera.Key & "-" & trayecto.ToString() & (posicion + 1).ToString("00")
+                    sentencias.Add(
+                        "INSERT IGNORE INTO asignaturas (carrera_id, trayecto, semestre, codigo, nombre) " &
+                        "SELECT id, " & trayecto.ToString() & ", " & trayecto.ToString() & ", '" & codigo & "', '" &
+                        lista(posicion).Replace("'", "''") & "' FROM carreras WHERE codigo = '" & carrera.Key & "'")
+                Next
+            Next
+        Next
+        Return sentencias.ToArray()
     End Function
 
 End Class

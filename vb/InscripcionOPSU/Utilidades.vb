@@ -121,4 +121,22 @@ Friend NotInheritable Class Utilidades
         End Using
     End Function
 
+    ''' <summary>Devuelve el texto o una raya cuando está vacío (para impresos).</summary>
+    Public Shared Function TextoONulo(valor As String) As String
+        If String.IsNullOrWhiteSpace(valor) Then Return "—"
+        Return valor.Trim()
+    End Function
+
+    ''' <summary>Fecha legible; si no existe devuelve una raya.</summary>
+    Public Shared Function FormatearFecha(valor As Date?, Optional conHora As Boolean = True) As String
+        If Not valor.HasValue OrElse valor.Value = Date.MinValue Then Return "—"
+        Return FormatearFecha(valor.Value, conHora)
+    End Function
+
+    ''' <summary>Fecha legible en formato venezolano.</summary>
+    Public Shared Function FormatearFecha(valor As Date, Optional conHora As Boolean = True) As String
+        If valor = Date.MinValue Then Return "—"
+        Return valor.ToString(If(conHora, "dd/MM/yyyy HH:mm", "dd/MM/yyyy"), CultureInfo.InvariantCulture)
+    End Function
+
 End Class

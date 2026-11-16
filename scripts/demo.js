@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Crea estudiantes e inscripciones de ejemplo para probar el portal
- * y la aplicacion de escritorio en Visual Basic.
+ * y el sistema de escritorio en Visual Basic.
  *
  * Uso: npm run demo
  */
@@ -26,9 +26,10 @@ const estudiantes = [
     fecha_nacimiento: '2003-05-18',
     sexo: 'F',
     direccion: 'Av. Universidad, sector Centro, Barquisimeto',
+    modalidad: 'OPSU',
     inscripciones: [
-      { carrera: 'INF', semestre: 3, turno: 'Mañana', observaciones: 'Estudiante de ejemplo para demostración.' },
-      { carrera: 'AGR', semestre: 1, turno: 'Tarde', observaciones: null },
+      { carrera: 'INF', trayecto: 3, tipoIngreso: 'OPSU', observaciones: 'Estudiante de ejemplo para demostración.' },
+      { carrera: 'AGR', trayecto: 1, tipoIngreso: 'FLOTANTE', observaciones: null },
     ],
   },
   {
@@ -40,8 +41,9 @@ const estudiantes = [
     fecha_nacimiento: '2001-11-02',
     sexo: 'M',
     direccion: 'Calle 5 con Av. Bolívar, Barquisimeto',
+    modalidad: 'OPSU',
     inscripciones: [
-      { carrera: 'VET', semestre: 2, turno: 'Noche', observaciones: 'Segunda inscripción de ejemplo.' },
+      { carrera: 'VET', trayecto: 2, tipoIngreso: 'OPSU', observaciones: 'Segunda inscripción de ejemplo.' },
     ],
   },
 ];
@@ -59,20 +61,20 @@ for (const datos of estudiantes) {
 
   for (const solicitud of datos.inscripciones) {
     const carrera = CARRERAS[solicitud.carrera];
-    const asignaturas = await listarAsignaturas(carrera.id, solicitud.semestre);
+    const asignaturas = await listarAsignaturas(carrera.id, solicitud.trayecto);
     try {
       const codigo = await crearInscripcion({
         estudianteId: id,
         carreraId: carrera.id,
-        semestre: solicitud.semestre,
-        turno: solicitud.turno,
+        trayecto: solicitud.trayecto,
+        tipoIngreso: solicitud.tipoIngreso,
         asignaturaIds: asignaturas.map((a) => a.id),
         observaciones: solicitud.observaciones,
       });
-      console.log(`  ${datos.cedula}  ${solicitud.carrera} sem ${solicitud.semestre}  ${codigo}`);
+      console.log(`  ${datos.cedula}  ${solicitud.carrera} trayecto ${solicitud.trayecto}  ${codigo}`);
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') {
-        console.log(`  ${datos.cedula}  ${solicitud.carrera} sem ${solicitud.semestre}  (ya existía)`);
+        console.log(`  ${datos.cedula}  ${solicitud.carrera} trayecto ${solicitud.trayecto}  (ya existía)`);
       } else {
         throw error;
       }
