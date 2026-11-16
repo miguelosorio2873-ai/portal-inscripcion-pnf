@@ -44,6 +44,14 @@ Public Module Utilidades
         End Select
     End Function
 
+    ''' <summary>Etiqueta legible de la condición del estudiante (REGULAR / FLOTANTE).</summary>
+    Public Function CondicionTexto(valor As String) As String
+        Select Case If(valor, String.Empty).Trim().ToUpperInvariant()
+            Case "FLOTANTE" : Return "Población flotante"
+            Case Else : Return "Alumno regular"
+        End Select
+    End Function
+
     Public Function TextoONulo(valor As String, Optional reemplazo As String = "—") As String
         Return If(String.IsNullOrWhiteSpace(valor), reemplazo, valor)
     End Function

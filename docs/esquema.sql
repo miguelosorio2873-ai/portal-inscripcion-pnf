@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS inscripciones (
   carrera_id         INT UNSIGNED NOT NULL,
   semestre           TINYINT UNSIGNED NOT NULL,
   turno              VARCHAR(20) NOT NULL,     -- Mañana, Tarde, Noche
+  condicion          ENUM('REGULAR', 'FLOTANTE') NOT NULL DEFAULT 'REGULAR',
+                                             -- Alumno regular / Población flotante
   fecha_inscripcion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado             ENUM('REGISTRADA', 'IMPRESA', 'ANULADA') NOT NULL DEFAULT 'REGISTRADA',
   observaciones      TEXT NULL,

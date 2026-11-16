@@ -108,6 +108,7 @@ const SENTENCIAS_ESQUEMA = [
      carrera_id         INT UNSIGNED NOT NULL,
      semestre           TINYINT UNSIGNED NOT NULL,
      turno              VARCHAR(20) NOT NULL,
+     condicion          ENUM('REGULAR', 'FLOTANTE') NOT NULL DEFAULT 'REGULAR',
      fecha_inscripcion  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      estado             ENUM('REGISTRADA', 'IMPRESA', 'ANULADA') NOT NULL DEFAULT 'REGISTRADA',
      observaciones      TEXT NULL,
@@ -138,6 +139,25 @@ const SENTENCIAS_ESQUEMA = [
 async function crearEsquema() {
   for (const sentencia of SENTENCIAS_ESQUEMA) {
     await pool.query(sentencia);
+  }
+}
+
+/**
+ * Ajustes sobre bases de datos ya creadas: agrega columnas nuevas sin perder datos.
+ */
+async function migrarEsquema() {
+  const [columnas] = await pool.query(
+    `SELECT COLUMN_NAME
+       FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'inscripciones' AND COLUMN_NAME = 'condicion'`,
+    [DB_NAME]
+  );
+
+  if (columnas.length === 0) {
+    await pool.query(
+      `ALTER TABLE inscripciones
+         ADD COLUMN condicion ENUM('REGULAR', 'FLOTANTE') NOT NULL DEFAULT 'REGULAR' AFTER turno`
+    );
   }
 }
 
@@ -234,6 +254,7 @@ async function sembrarDatos() {
 }
 
 await crearEsquema();
+await migrarEsquema();
 await sembrarDatos();
 
 /* -------------------------------------------------------------------------- */
@@ -298,16 +319,24 @@ export async function estudiantePorEmail(email) {
   return filas[0];
 }
 
-export async function crearInscripcion({ estudianteId, carreraId, semestre, turno, asignaturaIds, observaciones }) {
+export async function crearInscripcion({ estudianteId, carreraId, semestre, turno, condicion, asignaturaIds, observaciones }) {
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
 
     const temporal = `TMP-${randomUUID()}`;
     const [resultado] = await conexion.execute(
-      `INSERT INTO inscripciones (codigo, estudiante_id, carrera_id, semestre, turno, observaciones)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [temporal, Number(estudianteId), Number(carreraId), Number(semestre), turno, observaciones || null]
+      `INSERT INTO inscripciones (codigo, estudiante_id, carrera_id, semestre, turno, condicion, observaciones)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        temporal,
+        Number(estudianteId),
+        Number(carreraId),
+        Number(semestre),
+        turno,
+        condicion === 'FLOTANTE' ? 'FLOTANTE' : 'REGULAR',
+        observaciones || null,
+      ]
     );
 
     const id = Number(resultado.insertId);

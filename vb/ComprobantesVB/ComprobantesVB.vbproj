@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net11.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
     <RootNamespace>ComprobantesVB</RootNamespace>
     <StartupObject>Sub Main</StartupObject>
     <UseWindowsForms>true</UseWindowsForms>

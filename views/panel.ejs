@@ -55,6 +55,7 @@
                   <dl class="inscripcion-datos">
                     <div><dt>Semestre</dt><dd><%= numeroRomano(inscripcion.semestre) %></dd></div>
                     <div><dt>Turno</dt><dd><%= inscripcion.turno %></dd></div>
+                    <div><dt>Condición</dt><dd><%= etiquetaCondicion(inscripcion.condicion) %></dd></div>
                     <div><dt>Asignaturas</dt><dd><%= inscripcion.total_asignaturas %></dd></div>
                     <div><dt>Fecha</dt><dd><%= formatearFecha(inscripcion.fecha_inscripcion) %></dd></div>
                   </dl>

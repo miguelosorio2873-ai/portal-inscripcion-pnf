@@ -69,6 +69,21 @@
             <% if (errores.turno) { %><p class="error-campo"><%= errores.turno %></p><% } %>
           </fieldset>
 
+          <fieldset class="campo-grupo">
+            <legend>Condición del estudiante <span class="requerido">*</span></legend>
+            <div class="opciones-turno">
+              <% condiciones.forEach((condicion) => { %>
+                <label class="opcion-radio">
+                  <input type="radio" name="condicion" value="<%= condicion.valor %>"
+                    <%= valores.condicion === condicion.valor ? 'checked' : '' %> required>
+                  <span><%= condicion.etiqueta %></span>
+                </label>
+              <% }) %>
+            </div>
+            <p class="ayuda">«Población flotante» aplica a quienes cursan materias sin pertenecer formalmente a la matrícula regular del PNF.</p>
+            <% if (errores.condicion) { %><p class="error-campo"><%= errores.condicion %></p><% } %>
+          </fieldset>
+
           <div class="campo-grupo">
             <div class="campo-grupo-cabecera">
               <h3>Asignaturas del semestre</h3>
@@ -116,6 +131,7 @@
               <div><dt>Carrera</dt><dd id="resumen-carrera">Sin seleccionar</dd></div>
               <div><dt>Semestre</dt><dd id="resumen-semestre">Sin seleccionar</dd></div>
               <div><dt>Turno</dt><dd id="resumen-turno">Sin seleccionar</dd></div>
+              <div><dt>Condición</dt><dd id="resumen-condicion">Sin seleccionar</dd></div>
               <div><dt>Asignaturas</dt><dd id="resumen-asignaturas">0</dd></div>
             </dl>
             <p class="nota-pequena">

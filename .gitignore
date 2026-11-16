@@ -10,3 +10,8 @@ npm-debug.log*
 *.db
 *.db-wal
 *.db-shm
+.env
+.env.*
+!.env.example
+Thumbs.db
+.DS_Store

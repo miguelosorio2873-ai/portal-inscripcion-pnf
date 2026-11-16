@@ -10,6 +10,7 @@
   const resumenCarrera = document.getElementById('resumen-carrera');
   const resumenSemestre = document.getElementById('resumen-semestre');
   const resumenTurno = document.getElementById('resumen-turno');
+  const resumenCondicion = document.getElementById('resumen-condicion');
   const resumenAsignaturas = document.getElementById('resumen-asignaturas');
   const ROMANOS = ['I', 'II', 'III', 'IV', 'V'];
 
@@ -22,6 +23,7 @@
     if (!lista) return;
     const marcadas = lista.querySelectorAll('input[name="asignaturas"]:checked');
     const turno = form.querySelector('input[name="turno"]:checked');
+    const condicion = form.querySelector('input[name="condicion"]:checked');
     const semestre = Number(semestreSelect?.value || 0);
 
     if (contador) {
@@ -32,6 +34,7 @@
       resumenSemestre.textContent = semestre ? `Semestre ${ROMANOS[semestre - 1] || semestre}` : 'Sin seleccionar';
     }
     if (resumenTurno) resumenTurno.textContent = turno ? turno.value : 'Sin seleccionar';
+    if (resumenCondicion) resumenCondicion.textContent = condicion ? condicion.value : 'Sin seleccionar';
     if (resumenAsignaturas) resumenAsignaturas.textContent = String(marcadas.length);
   };
 
@@ -105,7 +108,7 @@
   semestreSelect?.addEventListener('change', cargarAsignaturas);
   lista?.addEventListener('change', actualizarResumen);
   form.addEventListener('change', (evento) => {
-    if (evento.target.name === 'turno') actualizarResumen();
+    if (evento.target.name === 'turno' || evento.target.name === 'condicion') actualizarResumen();
   });
 
   actualizarResumen();

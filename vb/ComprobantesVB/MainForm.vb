@@ -15,9 +15,16 @@ Public Class MainForm
     Private ReadOnly _menu As New MenuStrip()
     Private ReadOnly _encabezado As New Panel()
     Private ReadOnly _logoEncabezado As New PictureBox()
-    Private ReadOnly _barra As New FlowLayoutPanel()
+    Private ReadOnly _barra As New Panel()
+    Private ReadOnly _filaBusqueda As New FlowLayoutPanel()
+    Private ReadOnly _filaFiltros As New FlowLayoutPanel()
     Private ReadOnly _txtBuscar As New TextBox()
     Private ReadOnly _chkPendientes As New CheckBox()
+    Private ReadOnly _cboCarrera As New ComboBox()
+    Private ReadOnly _cboSemestre As New ComboBox()
+    Private ReadOnly _cboTurno As New ComboBox()
+    Private ReadOnly _cboCondicion As New ComboBox()
+    Private ReadOnly _cboEstado As New ComboBox()
     Private ReadOnly _dgv As New DataGridView()
     Private ReadOnly _split As New SplitContainer()
     Private ReadOnly _panelDetalle As New Panel()
@@ -37,9 +44,11 @@ Public Class MainForm
     Private ReadOnly _fuenteEstado As New Font("Segoe UI", 8.5F, FontStyle.Bold)
     Private _logo As Image
     Private _lista As List(Of InscripcionResumen) = New List(Of InscripcionResumen)()
+    Private ReadOnly _anchosBase As New Dictionary(Of String, Integer)()
     Private _actual As InscripcionCompleta
+    Private _cargandoFiltros As Boolean
 
-    Private Const AnchoPanelDetalle As Integer = 390
+    Private Const AnchoPanelDetalle As Integer = 352
 
     Public Sub New()
         Text = "Comprobantes de Inscripción · Control de Estudios"
@@ -198,13 +207,25 @@ Public Class MainForm
 
     Private Sub ConstruirBarra()
         _barra.Dock = DockStyle.Top
-        _barra.Height = 66
-        _barra.FlowDirection = FlowDirection.LeftToRight
-        _barra.WrapContents = False
-        _barra.AutoScroll = False
+        _barra.Height = 120
         _barra.BackColor = Color.White
-        _barra.Padding = New Padding(22, 16, 22, 10)
 
+        Dim contenedor As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 2,
+            .BackColor = Color.White,
+            .Margin = New Padding(0)
+        }
+        contenedor.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
+        contenedor.RowStyles.Add(New RowStyle(SizeType.Absolute, 58.0F))
+        contenedor.RowStyles.Add(New RowStyle(SizeType.Absolute, 56.0F))
+
+        ConfigurarFila(_filaBusqueda)
+        ConfigurarFila(_filaFiltros)
+        _filaFiltros.AutoScroll = True
+
+        ' ---- Fila 1: búsqueda por texto
         Dim etiqueta As New Label With {
             .Text = "Buscar",
             .AutoSize = True,
@@ -239,13 +260,80 @@ Public Class MainForm
         _chkPendientes.Font = New Font("Segoe UI", 9.0F)
         _chkPendientes.ForeColor = Color.FromArgb(52, 66, 82)
         _chkPendientes.Margin = New Padding(0, 11, 0, 0)
-        AddHandler _chkPendientes.CheckedChanged, Sub(sender As Object, e As EventArgs) CargarListado()
+        AddHandler _chkPendientes.CheckedChanged, Sub(sender As Object, e As EventArgs)
+            If _cargandoFiltros Then Return
+            CargarListado()
+        End Sub
 
-        _barra.Controls.Add(etiqueta)
-        _barra.Controls.Add(_txtBuscar)
-        _barra.Controls.Add(botonBuscar)
-        _barra.Controls.Add(botonRecargar)
-        _barra.Controls.Add(_chkPendientes)
+        _filaBusqueda.Controls.Add(etiqueta)
+        _filaBusqueda.Controls.Add(_txtBuscar)
+        _filaBusqueda.Controls.Add(botonBuscar)
+        _filaBusqueda.Controls.Add(botonRecargar)
+        _filaBusqueda.Controls.Add(_chkPendientes)
+
+        ' ---- Fila 2: filtros por carrera, semestre, turno, condición y estado
+        _filaFiltros.Controls.Add(CrearEtiquetaFiltro("Carrera"))
+        ConfigurarCombo(_cboCarrera, 200)
+        _filaFiltros.Controls.Add(_cboCarrera)
+
+        _filaFiltros.Controls.Add(CrearEtiquetaFiltro("Semestre"))
+        ConfigurarCombo(_cboSemestre, 96)
+        _filaFiltros.Controls.Add(_cboSemestre)
+
+        _filaFiltros.Controls.Add(CrearEtiquetaFiltro("Turno"))
+        ConfigurarCombo(_cboTurno, 92)
+        _filaFiltros.Controls.Add(_cboTurno)
+
+        _filaFiltros.Controls.Add(CrearEtiquetaFiltro("Condición"))
+        ConfigurarCombo(_cboCondicion, 150)
+        _filaFiltros.Controls.Add(_cboCondicion)
+
+        _filaFiltros.Controls.Add(CrearEtiquetaFiltro("Estado"))
+        ConfigurarCombo(_cboEstado, 118)
+        _filaFiltros.Controls.Add(_cboEstado)
+
+        Dim botonLimpiar As Button = CrearBoton("Limpiar filtros", False)
+        botonLimpiar.Width = 122
+        botonLimpiar.Margin = New Padding(4, 4, 0, 0)
+        AddHandler botonLimpiar.Click, Sub(sender As Object, e As EventArgs) LimpiarFiltros()
+        _filaFiltros.Controls.Add(botonLimpiar)
+
+        contenedor.Controls.Add(_filaBusqueda, 0, 0)
+        contenedor.Controls.Add(_filaFiltros, 0, 1)
+        _barra.Controls.Add(contenedor)
+    End Sub
+
+    Private Shared Sub ConfigurarFila(fila As FlowLayoutPanel)
+        fila.Dock = DockStyle.Fill
+        fila.FlowDirection = FlowDirection.LeftToRight
+        fila.WrapContents = False
+        fila.BackColor = Color.White
+        fila.Padding = New Padding(22, 10, 22, 4)
+        fila.Margin = New Padding(0)
+    End Sub
+
+    Private Shared Function CrearEtiquetaFiltro(texto As String) As Label
+        Return New Label With {
+            .Text = texto,
+            .AutoSize = True,
+            .Font = New Font("Segoe UI", 9.0F),
+            .ForeColor = Color.FromArgb(95, 113, 131),
+            .Margin = New Padding(0, 11, 6, 0)
+        }
+    End Function
+
+    Private Sub ConfigurarCombo(combo As ComboBox, ancho As Integer)
+        combo.DropDownStyle = ComboBoxStyle.DropDownList
+        combo.Width = ancho
+        combo.Font = New Font("Segoe UI", 9.5F)
+        combo.Margin = New Padding(0, 6, 10, 0)
+        combo.FlatStyle = FlatStyle.Flat
+        AddHandler combo.SelectedIndexChanged, AddressOf AlCambiarFiltro
+    End Sub
+
+    Private Sub AlCambiarFiltro(sender As Object, e As EventArgs)
+        If _cargandoFiltros Then Return
+        CargarListado()
     End Sub
 
     Private Function CrearBoton(texto As String, primario As Boolean) As Button
@@ -287,12 +375,13 @@ Public Class MainForm
             .ReadOnly = True
             .MultiSelect = False
             .SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            .ScrollBars = ScrollBars.Both
             .AutoGenerateColumns = False
-            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
             .ColumnHeadersHeight = 38
             .ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
             .EnableHeadersVisualStyles = False
-            .DefaultCellStyle.Font = New Font("Segoe UI", 9.0F)
+            .DefaultCellStyle.Font = New Font("Segoe UI", 8.8F)
             .DefaultCellStyle.Padding = New Padding(6, 0, 6, 0)
             .DefaultCellStyle.SelectionBackColor = Color.FromArgb(232, 241, 250)
             .DefaultCellStyle.SelectionForeColor = Color.FromArgb(16, 36, 58)
@@ -304,18 +393,18 @@ Public Class MainForm
             .RowTemplate.Height = 34
         End With
 
-        AgregarColumna("colCodigo", "Código", "Codigo", 118, DataGridViewContentAlignment.MiddleLeft)
-        AgregarColumna("colCedula", "Cédula", "Cedula", 92, DataGridViewContentAlignment.MiddleLeft)
-        AgregarColumna("colEstudiante", "Estudiante", "Estudiante", 152, DataGridViewContentAlignment.MiddleLeft)
-        AgregarColumna("colCarrera", "Carrera", "Carrera", 140, DataGridViewContentAlignment.MiddleLeft)
-        AgregarColumna("colSemestre", "Sem.", "SemestreTexto", 45, DataGridViewContentAlignment.MiddleCenter)
-        AgregarColumna("colTurno", "Turno", "Turno", 68, DataGridViewContentAlignment.MiddleLeft)
-        AgregarColumna("colFecha", "Fecha", "FechaTexto", 118, DataGridViewContentAlignment.MiddleLeft)
-        AgregarColumna("colEstado", "Estado", "Estado", 110, DataGridViewContentAlignment.MiddleCenter)
-        AgregarColumna("colImpresiones", "Impr.", "Impresiones", 50, DataGridViewContentAlignment.MiddleCenter)
+        AgregarColumna("colCodigo", "Código", "Codigo", 128, DataGridViewContentAlignment.MiddleLeft)
+        AgregarColumna("colCedula", "Cédula", "Cedula", 100, DataGridViewContentAlignment.MiddleLeft)
+        AgregarColumna("colEstudiante", "Estudiante", "Estudiante", 116, DataGridViewContentAlignment.MiddleLeft)
+        AgregarColumna("colSemestre", "Sem.", "SemestreTexto", 32, DataGridViewContentAlignment.MiddleCenter)
+        AgregarColumna("colTurno", "Turno", "Turno", 72, DataGridViewContentAlignment.MiddleLeft)
+        AgregarColumna("colCondicion", "Condición", "CondicionTexto", 102, DataGridViewContentAlignment.MiddleLeft)
+        AgregarColumna("colFecha", "Fecha", "FechaCortaTexto", 84, DataGridViewContentAlignment.MiddleLeft)
+        AgregarColumna("colEstado", "Estado", "Estado", 94, DataGridViewContentAlignment.MiddleCenter)
 
         AddHandler _dgv.SelectionChanged, Sub(sender As Object, e As EventArgs) ActualizarDetalle()
         AddHandler _dgv.CellFormatting, AddressOf FormatearCelda
+        AddHandler _dgv.SizeChanged, Sub(sender As Object, e As EventArgs) RepartirSobrante()
         AddHandler _dgv.CellDoubleClick, Sub(sender As Object, e As DataGridViewCellEventArgs)
             If e.RowIndex >= 0 Then MostrarVistaPrevia()
         End Sub
@@ -333,6 +422,52 @@ Public Class MainForm
         }
         columna.DefaultCellStyle.Alignment = alineacion
         _dgv.Columns.Add(columna)
+    End Sub
+
+    ''' <summary>
+    ''' Ajusta cada columna al ancho que necesita su contenido y luego reparte
+    ''' el espacio libre. Así ningún texto se muestra con puntos suspensivos.
+    ''' </summary>
+    Private Sub AjustarColumnas()
+        _anchosBase.Clear()
+
+        If _dgv.Rows.Count > 0 Then
+            For Each columna As DataGridViewColumn In _dgv.Columns
+                columna.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells
+            Next
+            _dgv.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells)
+        End If
+
+        For Each columna As DataGridViewColumn In _dgv.Columns
+            Dim ancho As Integer = Math.Max(columna.MinimumWidth, columna.Width)
+            columna.AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            columna.Width = ancho
+            _anchosBase(columna.Name) = ancho
+        Next
+
+        RepartirSobrante()
+    End Sub
+
+    ''' <summary>Devuelve las columnas a su ancho base y da el sobrante a Estudiante.</summary>
+    Private Sub RepartirSobrante()
+        If _anchosBase.Count = 0 Then Return
+
+        For Each columna As DataGridViewColumn In _dgv.Columns
+            Dim ancho As Integer
+            If _anchosBase.TryGetValue(columna.Name, ancho) AndAlso columna.Width <> ancho Then
+                columna.Width = ancho
+            End If
+        Next
+
+        Dim usado As Integer = 0
+        For Each columna As DataGridViewColumn In _dgv.Columns
+            usado += columna.Width
+        Next
+
+        Dim sobrante As Integer = _dgv.ClientSize.Width - usado - 1
+        If sobrante > 0 AndAlso _dgv.Columns.Contains("colEstudiante") Then
+            _dgv.Columns("colEstudiante").Width += sobrante
+        End If
     End Sub
 
     Private Sub ConstruirSplit()
@@ -385,7 +520,7 @@ Public Class MainForm
             .AutoEllipsis = True
             .TextAlign = ContentAlignment.MiddleLeft
         End With
-        AgregarFilaDetalle(contenido, _lblSubtituloDetalle, 22, New Padding(0, 0, 0, 10))
+        AgregarFilaDetalle(contenido, _lblSubtituloDetalle, 22, New Padding(0, 0, 0, 6))
 
         Dim separador As New Panel With {
             .BackColor = Color.FromArgb(221, 229, 238),
@@ -445,7 +580,7 @@ Public Class MainForm
             .Dock = DockStyle.Fill
             .BackColor = Color.White
         End With
-        _tablaCampos.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 102.0F))
+        _tablaCampos.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 96.0F))
         _tablaCampos.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100.0F))
 
         AgregarCampo("Cedula", "Cédula")
@@ -453,6 +588,7 @@ Public Class MainForm
         AgregarCampo("Carrera", "Carrera")
         AgregarCampo("Semestre", "Semestre")
         AgregarCampo("Turno", "Turno")
+        AgregarCampo("Condicion", "Condición")
         AgregarCampo("Fecha", "Fecha")
         AgregarCampo("Estado", "Estado")
         AgregarCampo("Impresiones", "Impresiones")
@@ -470,16 +606,16 @@ Public Class MainForm
             .ForeColor = Color.FromArgb(95, 113, 131),
             .AutoSize = True,
             .Anchor = AnchorStyles.Left,
-            .Margin = New Padding(0, 3, 6, 3)
+            .Margin = New Padding(0, 2, 6, 2)
         }
 
         Dim valor As New Label With {
             .Text = "—",
-            .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold),
+            .Font = New Font("Segoe UI", If(clave = "Correo", 8.3F, 9.0F), FontStyle.Bold),
             .ForeColor = Color.FromArgb(16, 36, 58),
             .AutoSize = True,
-            .MaximumSize = New Size(216, 0),
-            .Margin = New Padding(0, 3, 0, 3)
+            .MaximumSize = New Size(If(clave = "Correo", 206, 216), 0),
+            .Margin = New Padding(0, 2, 0, 2)
         }
 
         _tablaCampos.Controls.Add(titulo, 0, fila)
@@ -583,6 +719,83 @@ Public Class MainForm
         _split.SplitterDistance = Math.Max(360, _split.Width - AnchoPanelDetalle)
         _split.Panel1MinSize = 460
         _split.Panel2MinSize = 340
+        InicializarFiltros()
+        CargarListado()
+    End Sub
+
+    ''' <summary>Carga los valores de los combos de filtro.</summary>
+    Private Sub InicializarFiltros()
+        _cargandoFiltros = True
+        Try
+            _cboCarrera.Items.Clear()
+            _cboCarrera.Items.Add(New OpcionFiltro With {.Valor = "0", .Texto = "Todas las carreras"})
+            Try
+                For Each carrera As OpcionFiltro In Datos.ListarCarreras()
+                    _cboCarrera.Items.Add(carrera)
+                Next
+            Catch ex As Exception
+                ' Si la base no responde, CargarListado mostrará el error.
+            End Try
+            _cboCarrera.SelectedIndex = 0
+
+            _cboSemestre.Items.Clear()
+            _cboSemestre.Items.Add(New OpcionFiltro With {.Valor = "0", .Texto = "Todos"})
+            For numero As Integer = 1 To 5
+                _cboSemestre.Items.Add(New OpcionFiltro With {
+                    .Valor = numero.ToString(),
+                    .Texto = Utilidades.NumeroRomano(numero)
+                })
+            Next
+            _cboSemestre.SelectedIndex = 0
+
+            _cboTurno.Items.Clear()
+            _cboTurno.Items.Add(New OpcionFiltro With {.Valor = "", .Texto = "Todos"})
+            For Each turno As String In {"Mañana", "Tarde", "Noche"}
+                _cboTurno.Items.Add(New OpcionFiltro With {.Valor = turno, .Texto = turno})
+            Next
+            _cboTurno.SelectedIndex = 0
+
+            _cboCondicion.Items.Clear()
+            _cboCondicion.Items.Add(New OpcionFiltro With {.Valor = "", .Texto = "Todas"})
+            _cboCondicion.Items.Add(New OpcionFiltro With {.Valor = "REGULAR", .Texto = "Alumno regular"})
+            _cboCondicion.Items.Add(New OpcionFiltro With {.Valor = "FLOTANTE", .Texto = "Población flotante"})
+            _cboCondicion.SelectedIndex = 0
+
+            _cboEstado.Items.Clear()
+            _cboEstado.Items.Add(New OpcionFiltro With {.Valor = "", .Texto = "Todos"})
+            For Each estado As String In {"REGISTRADA", "IMPRESA", "ANULADA"}
+                _cboEstado.Items.Add(New OpcionFiltro With {.Valor = estado, .Texto = estado})
+            Next
+            _cboEstado.SelectedIndex = 0
+        Finally
+            _cargandoFiltros = False
+        End Try
+    End Sub
+
+    Private Shared Function ValorSeleccionado(combo As ComboBox) As String
+        Dim opcion As OpcionFiltro = TryCast(combo.SelectedItem, OpcionFiltro)
+        Return If(opcion Is Nothing, String.Empty, opcion.Valor)
+    End Function
+
+    Private Shared Function EnteroSeleccionado(combo As ComboBox) As Integer
+        Dim numero As Integer
+        Integer.TryParse(ValorSeleccionado(combo), numero)
+        Return numero
+    End Function
+
+    Private Sub LimpiarFiltros()
+        _cargandoFiltros = True
+        Try
+            _txtBuscar.Clear()
+            _chkPendientes.Checked = False
+            _cboCarrera.SelectedIndex = 0
+            _cboSemestre.SelectedIndex = 0
+            _cboTurno.SelectedIndex = 0
+            _cboCondicion.SelectedIndex = 0
+            _cboEstado.SelectedIndex = 0
+        Finally
+            _cargandoFiltros = False
+        End Try
         CargarListado()
     End Sub
 
@@ -598,12 +811,21 @@ Public Class MainForm
 
     Private Sub CargarListado(Optional mantenerId As Integer = 0)
         Try
-            _lista = Datos.Buscar(_txtBuscar.Text, _chkPendientes.Checked)
+            _lista = Datos.Buscar(_txtBuscar.Text, _chkPendientes.Checked,
+                                  EnteroSeleccionado(_cboCarrera), EnteroSeleccionado(_cboSemestre),
+                                  ValorSeleccionado(_cboTurno), ValorSeleccionado(_cboCondicion),
+                                  ValorSeleccionado(_cboEstado))
 
             _dgv.DataSource = Nothing
             _dgv.DataSource = _lista
+            AjustarColumnas()
 
-            _lblConteo.Text = _lista.Count.ToString() & " inscripción(es)"
+            Dim filtrado As Boolean = _txtBuscar.Text.Trim().Length > 0 OrElse _chkPendientes.Checked OrElse
+                                      EnteroSeleccionado(_cboCarrera) > 0 OrElse EnteroSeleccionado(_cboSemestre) > 0 OrElse
+                                      ValorSeleccionado(_cboTurno).Length > 0 OrElse ValorSeleccionado(_cboCondicion).Length > 0 OrElse
+                                      ValorSeleccionado(_cboEstado).Length > 0
+
+            _lblConteo.Text = _lista.Count.ToString() & " inscripción(es)" & If(filtrado, " · filtrado", "")
             _lblRuta.Text = "MySQL: " & Configuracion.DescripcionConexion
 
             If mantenerId > 0 Then
@@ -679,11 +901,14 @@ Public Class MainForm
             _campos("Carrera").Text = _actual.Carrera
             _campos("Semestre").Text = _actual.SemestreTexto
             _campos("Turno").Text = _actual.Turno
+            _campos("Condicion").Text = _actual.CondicionTexto
             _campos("Fecha").Text = Utilidades.FormatearFecha(_actual.FechaInscripcion)
             _campos("Estado").Text = _actual.Estado
             _campos("Impresiones").Text = _actual.Impresiones.ToString() &
                 If(_actual.Impresiones = 1, " impresión", " impresiones")
-            _campos("Correo").Text = Utilidades.TextoONulo(_actual.Email)
+            ' El correo no tiene espacios: se parte antes de la arroba para que quepa en el panel.
+            Dim correo As String = Utilidades.TextoONulo(_actual.Email)
+            _campos("Correo").Text = correo.Replace("@", Environment.NewLine & "@")
 
             Select Case _actual.Estado
                 Case "IMPRESA"
@@ -874,8 +1099,19 @@ Public Class MainForm
             informe.AppendLine("Logo encabezado: no encontrado")
         End If
         informe.AppendLine("Barra de búsqueda: " & _barra.Bounds.ToString())
+        informe.AppendLine("Filtros: carrera=" & ValorSeleccionado(_cboCarrera) &
+                           " semestre=" & ValorSeleccionado(_cboSemestre) &
+                           " turno=" & ValorSeleccionado(_cboTurno) &
+                           " condición=" & ValorSeleccionado(_cboCondicion) &
+                           " estado=" & ValorSeleccionado(_cboEstado) &
+                           " · controles=" & _filaFiltros.Controls.Count.ToString())
         informe.AppendLine("Split: " & _split.Bounds.ToString() & " · distancia " & _split.SplitterDistance.ToString())
         informe.AppendLine("Grid: " & _dgv.Bounds.ToString())
+        Dim anchos As New StringBuilder()
+        For Each columna As DataGridViewColumn In _dgv.Columns
+            anchos.Append(columna.Name).Append("=").Append(columna.Width.ToString()).Append(" ")
+        Next
+        informe.AppendLine("Anchos de columna: " & anchos.ToString().Trim())
         informe.AppendLine("Panel detalle: " & _panelDetalle.Bounds.ToString())
         informe.AppendLine("Lista asignaturas: " & _listaAsignaturas.Bounds.ToString())
         informe.AppendLine("Botón vista previa: " & _btnVista.Bounds.ToString())

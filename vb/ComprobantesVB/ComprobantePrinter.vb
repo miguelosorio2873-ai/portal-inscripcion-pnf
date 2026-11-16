@@ -248,7 +248,8 @@ Public Class ComprobantePrinter
             ", titular de la cédula de identidad " & _datos.Cedula &
             ", quedó inscrito(a) en el " & _datos.Carrera &
             " para el semestre " & _datos.SemestreTexto &
-            ", en el turno " & _datos.Turno & "."
+            ", en el turno " & _datos.Turno &
+            ", en condición de " & _datos.CondicionTexto.ToLowerInvariant() & "."
 
         Dim alto As Single = g.MeasureString(texto, _fCuerpo, New SizeF(area.Width, 300), _formatoWrap).Height
         DibujarTexto(g, texto, _fCuerpo, _tinta, New RectangleF(area.Left, y, area.Width, alto + 4), _formatoWrap)
@@ -285,6 +286,7 @@ Public Class ComprobantePrinter
             {"Carrera", _datos.Carrera},
             {"Semestre", _datos.SemestreTexto},
             {"Turno", _datos.Turno},
+            {"Condición", _datos.CondicionTexto},
             {"Fecha", Utilidades.FormatearFecha(_datos.FechaInscripcion)},
             {"Estado", _datos.Estado}
         }

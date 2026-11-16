@@ -44,7 +44,8 @@ Public NotInheritable Class SelfTest
                     reporte.AppendLine("Comprobante: " & completa.Codigo)
                     reporte.AppendLine("Estudiante: " & completa.NombreCompleto & " (" & completa.Cedula & ")")
                     reporte.AppendLine("Carrera: " & completa.Carrera)
-                    reporte.AppendLine("Semestre: " & completa.SemestreTexto & " · Turno: " & completa.Turno)
+                    reporte.AppendLine("Semestre: " & completa.SemestreTexto & " · Turno: " & completa.Turno &
+                                       " · Condición: " & completa.CondicionTexto)
                     reporte.AppendLine("Estado: " & completa.Estado & " · Impresiones: " & completa.Impresiones.ToString())
                     reporte.AppendLine("Asignaturas: " & completa.Asignaturas.Count.ToString())
                     For Each asignatura As AsignaturaInscrita In completa.Asignaturas
@@ -194,6 +195,7 @@ Public NotInheritable Class SelfTest
             datos.NombreCompleto,
             datos.Cedula,
             datos.Carrera,
+            datos.CondicionTexto,
             "Firma del estudiante",
             "Control de Estudios"
         }

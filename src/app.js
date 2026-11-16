@@ -30,6 +30,10 @@ import {
 } from './seguridad.js';
 
 export const TURNOS = ['Mañana', 'Tarde', 'Noche'];
+export const CONDICIONES = [
+  { valor: 'REGULAR', etiqueta: 'Alumno regular' },
+  { valor: 'FLOTANTE', etiqueta: 'Población flotante' },
+];
 export const SEMESTRES = [1, 2, 3, 4, 5];
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V'];
 
@@ -39,6 +43,12 @@ const ROMANOS = ['I', 'II', 'III', 'IV', 'V'];
 
 export function numeroRomano(numero) {
   return ROMANOS[Number(numero) - 1] || String(numero);
+}
+
+/** Devuelve la etiqueta legible de la condición del estudiante. */
+export function etiquetaCondicion(valor) {
+  const encontrada = CONDICIONES.find((condicion) => condicion.valor === valor);
+  return encontrada ? encontrada.etiqueta : 'Alumno regular';
 }
 
 function interpretarFecha(valor) {
@@ -139,7 +149,9 @@ app.use(async (req, res, next) => {
   res.locals.formatearFecha = formatearFecha;
   res.locals.fechaLarga = fechaLarga;
   res.locals.numeroRomano = numeroRomano;
+  res.locals.etiquetaCondicion = etiquetaCondicion;
   res.locals.turnos = TURNOS;
+  res.locals.condiciones = CONDICIONES;
   res.locals.semestres = SEMESTRES;
   res.locals.anio = new Date().getFullYear();
   next();
@@ -345,6 +357,7 @@ app.get('/inscribir', requiereEstudiante, async (req, res) => {
       carrera_id: carrera ? carrera.id : '',
       semestre: '',
       turno: '',
+      condicion: 'REGULAR',
       observaciones: '',
     },
     errores: {},
@@ -359,6 +372,7 @@ app.post('/inscribir', requiereEstudiante, verificarCsrf, async (req, res) => {
     carrera_id: texto(req.body.carrera_id),
     semestre: texto(req.body.semestre),
     turno: texto(req.body.turno),
+    condicion: texto(req.body.condicion).toUpperCase(),
     observaciones: texto(req.body.observaciones).slice(0, 500),
   };
   const errores = {};
@@ -366,12 +380,16 @@ app.post('/inscribir', requiereEstudiante, verificarCsrf, async (req, res) => {
   const carrera = await obtenerCarrera(valores.carrera_id);
   const semestre = Number(valores.semestre);
   const turno = TURNOS.includes(valores.turno) ? valores.turno : null;
+  const condicion = CONDICIONES.some((opcion) => opcion.valor === valores.condicion)
+    ? valores.condicion
+    : null;
 
   if (!carrera) errores.carrera_id = 'Selecciona una carrera.';
   if (!Number.isInteger(semestre) || !SEMESTRES.includes(semestre)) {
     errores.semestre = 'Selecciona un semestre válido.';
   }
   if (!turno) errores.turno = 'Selecciona un turno.';
+  if (!condicion) errores.condicion = 'Indica la condición del estudiante.';
 
   const disponibles = carrera ? await listarAsignaturas(carrera.id, semestre) : [];
   const idsDisponibles = new Set(disponibles.map((a) => a.id));
@@ -406,6 +424,7 @@ app.post('/inscribir', requiereEstudiante, verificarCsrf, async (req, res) => {
       carreraId: carrera.id,
       semestre,
       turno,
+      condicion,
       asignaturaIds: seleccionadas,
       observaciones: valores.observaciones,
     });

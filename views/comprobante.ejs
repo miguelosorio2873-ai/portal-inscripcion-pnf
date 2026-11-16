@@ -42,7 +42,8 @@
         titular de la cédula de identidad <strong><%= inscripcion.cedula %></strong>, quedó inscrito(a) en el
         <strong><%= inscripcion.carrera %></strong> para el semestre
         <strong><%= numeroRomano(inscripcion.semestre) %></strong>, en el turno
-        <strong><%= inscripcion.turno %></strong>.
+        <strong><%= inscripcion.turno %></strong>, en condición de
+        <strong><%= etiquetaCondicion(inscripcion.condicion).toLowerCase() %></strong>.
       </p>
 
       <div class="comprobante-columnas">
@@ -65,6 +66,7 @@
             <div><dt>Carrera</dt><dd><%= inscripcion.carrera %></dd></div>
             <div><dt>Semestre</dt><dd><%= numeroRomano(inscripcion.semestre) %></dd></div>
             <div><dt>Turno</dt><dd><%= inscripcion.turno %></dd></div>
+            <div><dt>Condición</dt><dd><%= etiquetaCondicion(inscripcion.condicion) %></dd></div>
             <div><dt>Fecha</dt><dd><%= fechaLarga(inscripcion.fecha_inscripcion) %></dd></div>
             <div><dt>Hora de registro</dt><dd><%= formatearFecha(inscripcion.fecha_inscripcion) %></dd></div>
           </dl>

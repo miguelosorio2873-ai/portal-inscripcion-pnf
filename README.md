@@ -28,7 +28,8 @@ los comprobantes desde Control de Estudios.
 - Registro de estudiantes con validación de cédula, correo, teléfono, fecha de nacimiento y contraseña.
 - Inicio de sesión con cédula **o** correo electrónico.
 - Inscripción a cualquiera de las 4 carreras, con selección de semestre (I–V), turno
-  (Mañana/Tarde/Noche) y asignaturas del semestre.
+  (Mañana/Tarde/Noche), condición del estudiante (alumno regular o población flotante) y
+  asignaturas del semestre.
 - Código único de comprobante con formato `INS-AAAA-000001`.
 - Panel del estudiante con sus inscripciones, estado y acceso al comprobante.
 - Comprobante oficial en pantalla y **versión imprimible** (CSS `@media print`, tamaño carta).
@@ -40,8 +41,9 @@ los comprobantes desde Control de Estudios.
 **Aplicación de escritorio (Visual Basic)**
 
 - Se conecta **a la misma base MySQL** del portal.
-- Búsqueda por cédula, código de comprobante, nombres o apellidos; filtro «solo pendientes de imprimir».
-- Detalle completo: estudiante, carrera, semestre, turno, asignaturas, observaciones e historial de impresiones.
+- Búsqueda por cédula, código de comprobante, nombres o apellidos; filtros por carrera, semestre,
+  turno, condición y estado, y filtro «solo pendientes de imprimir».
+- Detalle completo: estudiante, carrera, semestre, turno, condición (alumno regular / población flotante), asignaturas, observaciones e historial de impresiones.
 - **Vista previa** e **impresión** en tamaño carta, con encabezado institucional (logo UPTLL), datos,
   tabla de asignaturas, firmas y leyenda de verificación.
 - **Impresión directa** a la impresora predeterminada desde el portal o desde
@@ -346,7 +348,7 @@ automáticamente. El esquema completo y las consultas que usa Visual Basic está
 | `carreras` | PNF Informática (INF), Veterinaria (VET), Administración (ADM), Agroalimentaria (AGR) |
 | `estudiantes` | Datos personales, credenciales y hash de contraseña |
 | `asignaturas` | 3 asignaturas por cada semestre de cada carrera |
-| `inscripciones` | Código único, carrera, semestre, turno, fecha, estado, impresiones |
+| `inscripciones` | Código único, carrera, semestre, turno, condición (REGULAR / FLOTANTE), fecha, estado, impresiones |
 | `inscripcion_asignaturas` | Asignaturas seleccionadas en cada inscripción |
 
 Estados de una inscripción:
