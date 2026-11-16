@@ -24,6 +24,8 @@ datos, el mismo modelo y los mismos registros.
                                        └──────────────────────────┘
 ```
 
+**Repositorio público:** <https://github.com/miguelosorio2873-ai/portal-inscripcion-pnf>
+
 ---
 
 ## Qué incluye
@@ -83,6 +85,18 @@ datos, el mismo modelo y los mismos registros.
 ---
 
 ## Puesta en marcha
+
+### 0. Obtener el proyecto
+
+```powershell
+git clone https://github.com/miguelosorio2873-ai/portal-inscripcion-pnf.git
+cd portal-inscripcion-pnf
+```
+
+También puede descargarse como ZIP desde el botón **Code → Download ZIP**
+del repositorio. En un equipo Windows con Node.js ya instalado se puede usar
+`instalar.bat`, que comprueba Node y MySQL, instala dependencias, crea las
+cuentas de prueba y abre el portal.
 
 ### 1. Iniciar MySQL en XAMPP
 
