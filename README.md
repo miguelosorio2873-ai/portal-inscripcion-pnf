@@ -506,4 +506,20 @@ El resto de rutas son páginas HTML con formularios protegidos por CSRF.
 
 ---
 
+## Sistema de inscripción OPSU (escritorio)
+
+Módulo independiente en `vb/InscripcionOPSU` para el registro de estudiantes por
+trayecto y la validación contra el archivo oficial de la OPSU.
+
+- Base de datos propia: `inscripcion_opsu` (no modifica `portal_pnf`).
+- Sin turnos: la clasificación es solo por **Trayecto**.
+- Importa CSV/XLSX/XLS de la OPSU y clasifica coincidencias, faltantes y diferencias.
+- Reportes filtrados por trayecto y tipo de ingreso, con vista previa e impresión.
+
+Documentación completa: [`docs/README-OPSU.md`](docs/README-OPSU.md) ·
+Esquema: [`docs/esquema-opsu.sql`](docs/esquema-opsu.sql) ·
+Ejemplo de archivo: [`docs/ejemplo-opsu.csv`](docs/ejemplo-opsu.csv).
+
+---
+
 Proyecto académico de inscripción universitaria · Control de Estudios · PNF.
