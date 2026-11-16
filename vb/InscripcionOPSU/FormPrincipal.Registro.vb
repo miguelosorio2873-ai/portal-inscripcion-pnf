@@ -30,11 +30,19 @@ Friend Partial Class FormPrincipal
     Private ReadOnly _cboFiltroCarrera As New ComboBox()
     Private ReadOnly _lblTotal As New Label()
 
+    ''' <summary>
+    ''' Ancho deseado para el formulario. El SplitContainer aún no tiene su tamaño
+    ''' definitivo cuando se construye la pestaña, así que se aplica en OnShown.
+    ''' </summary>
+    Private Const AnchoFormulario As Integer = 470
+
+    Private _division As SplitContainer
+
     Private Sub ConstruirRegistro(pagina As TabPage)
         Dim division As New SplitContainer()
         division.Dock = DockStyle.Fill
         division.FixedPanel = FixedPanel.Panel1
-        division.SplitterDistance = 450
+        _division = division
         pagina.Controls.Add(division)
 
         ' ---------------- formulario ----------------
@@ -279,6 +287,24 @@ Friend Partial Class FormPrincipal
     End Sub
 
     ' ------------------------------------------------------------------ acciones
+
+    ''' <summary>Aplica el ancho del formulario cuando la ventana ya tiene su tamaño real.</summary>
+    Friend Sub AjustarDivision()
+        If _division Is Nothing Then Return
+        Dim ancho As Integer = _division.Width
+        If ancho < 760 Then Return   ' todavía no hay espacio suficiente
+
+        Try
+            _division.Panel1MinSize = 380
+            _division.Panel2MinSize = 300
+            Dim maximo As Integer = ancho - _division.Panel2MinSize - _division.SplitterWidth
+            If maximo > _division.Panel1MinSize Then
+                _division.SplitterDistance = Math.Min(AnchoFormulario, maximo)
+            End If
+        Catch ex As InvalidOperationException
+            ' El contenedor aún no admite el ajuste; se reintenta en el próximo cambio de tamaño.
+        End Try
+    End Sub
 
     Private Sub Cedula_KeyDown(sender As Object, e As KeyEventArgs)
         If e.KeyCode = Keys.Enter Then

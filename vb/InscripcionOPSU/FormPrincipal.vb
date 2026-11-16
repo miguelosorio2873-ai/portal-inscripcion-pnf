@@ -54,6 +54,7 @@ Friend Partial Class FormPrincipal
 
     Protected Overrides Sub OnShown(e As EventArgs)
         MyBase.OnShown(e)
+        AjustarDivision()
         Try
             RefrescarListado()
         Catch ex As Exception
